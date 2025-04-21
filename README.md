@@ -108,7 +108,6 @@ NERO EasyStake's core innovation lies in its deep integration with NERO's AA Pla
         participant AutoCompoundPaymaster [EasyStake Paymaster (Optional)]
         participant NeroEntryPoint [NERO EntryPoint]
         participant EasyStakeCore [EasyStake Core Contract]
-
         Note over Keeper: Runs periodically based on user setting
         Keeper->>UserAAWallet: Prepare Batch UserOp [ClaimRewards, StakeRewards]
         Note over UserAAWallet: AA Wallet logic permits Keeper only for this batch.
@@ -136,8 +135,7 @@ NERO EasyStake's core innovation lies in its deep integration with NERO's AA Pla
         U[User] --> FE[EasyStake Frontend];
         FE --> AAW[User's AA Wallet];
 
-        subgraph NERO Chain
-            direction LR
+        subgraph NERO_Chain
             EP[EntryPoint Contract]
             ESC[EasyStake Core Contract]
             STN[stNERO Token (ERC20)]
@@ -161,14 +159,13 @@ NERO EasyStake's core innovation lies in its deep integration with NERO's AA Pla
         P1 -->|reads| REG;
         P2 -->|instructs fee transfer| STN;
 
-
         K[Keeper Service (Optional)] -->|Submit UserOp for Auto-Compound| EP;
 
         style P1 fill:#f9d,stroke:#333,stroke-width:1px
         style P2 fill:#f9d,stroke:#333,stroke-width:1px
         style P3 fill:#f9d,stroke:#333,stroke-width:1px
         style EP fill:#ccf,stroke:#333,stroke-width:2px
-        style AAW fill:#lightgrey,stroke:#333,stroke-width:2px
+        style AAW fill:#d3d3d3,stroke:#333,stroke-width:2px
     ```
 ---
 
