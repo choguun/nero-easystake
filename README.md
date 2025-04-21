@@ -43,7 +43,7 @@ NERO EasyStake's core innovation lies in its deep integration with NERO's AA Pla
 * **Diagrams:** Detailed Mermaid diagrams illustrating the Gasless First Stake, Pay Fees with Rewards, Auto-Compounding, and High-Level Architecture flows are included below (or in linked files) to visually clarify the AA integration and structure.
 
     ```mermaid
-    sequenceDiagram
+        sequenceDiagram
         participant User
         participant EasyStakeFE [EasyStake Frontend]
         participant UserAAWallet [User's AA Wallet]
@@ -103,11 +103,11 @@ NERO EasyStake's core innovation lies in its deep integration with NERO's AA Pla
     ```
     ```mermaid
         sequenceDiagram
-        participant Keeper [Authorized Keeper Service]
-        participant UserAAWallet [User's AA Wallet]
-        participant AutoCompoundPaymaster [EasyStake Paymaster (Optional)]
-        participant NeroEntryPoint [NERO EntryPoint]
-        participant EasyStakeCore [EasyStake Core Contract]
+        participant Keeper as Authorized Keeper Service
+        participant UserAAWallet as User's AA Wallet
+        participant AutoCompoundPaymaster as EasyStake Paymaster (Optional)
+        participant NeroEntryPoint as NERO EntryPoint
+        participant EasyStakeCore as EasyStake Core Contract
         Note over Keeper: Runs periodically based on user setting
         Keeper->>UserAAWallet: Prepare Batch UserOp [ClaimRewards, StakeRewards]
         Note over UserAAWallet: AA Wallet logic permits Keeper only for this batch.
@@ -132,34 +132,34 @@ NERO EasyStake's core innovation lies in its deep integration with NERO's AA Pla
     ```
     ```mermaid
         graph TD
-        U[User] --> FE[EasyStake Frontend];
-        FE --> AAW[User's AA Wallet];
+        U[User] --> FE[EasyStake Frontend]
+        FE --> AAW[User's AA Wallet]
 
         subgraph NERO_Chain
             EP[EntryPoint Contract]
             ESC[EasyStake Core Contract]
-            STN[stNERO Token (ERC20)]
+            STN[stNERO Token ERC20]
             P1[Paymaster: First Stake Sponsor]
             P2[Paymaster: Pay with Rewards]
-            P3[Paymaster: Auto-Compound Sponsor (Optional)]
-            REG[Registry: First Stake Check (Optional)]
+            P3[Paymaster: Auto-Compound Sponsor]
+            REG[Registry: First Stake Check]
         end
 
-        AAW -->|Submit UserOp| EP;
-        EP -->|validateUserOp| AAW;
-        EP -->|validatePaymasterUserOp| P1;
-        EP -->|validatePaymasterUserOp| P2;
-        EP -->|validatePaymasterUserOp| P3;
-        EP -->|executeUserOp| AAW;
-        AAW -->|delegatecall/call| ESC;
-        ESC -->|interacts with| STN;
-        EP -->|postOp| P1;
-        EP -->|postOp| P2;
-        EP -->|postOp| P3;
-        P1 -->|reads| REG;
-        P2 -->|instructs fee transfer| STN;
+        AAW -->|Submit UserOp| EP
+        EP -->|validateUserOp| AAW
+        EP -->|validatePaymasterUserOp| P1
+        EP -->|validatePaymasterUserOp| P2
+        EP -->|validatePaymasterUserOp| P3
+        EP -->|executeUserOp| AAW
+        AAW -->|delegatecall/call| ESC
+        ESC -->|interacts with| STN
+        EP -->|postOp| P1
+        EP -->|postOp| P2
+        EP -->|postOp| P3
+        P1 -->|reads| REG
+        P2 -->|instructs fee transfer| STN
 
-        K[Keeper Service (Optional)] -->|Submit UserOp for Auto-Compound| EP;
+        K[Keeper Service] -->|Submit UserOp for Auto-Compound| EP
 
         style P1 fill:#f9d,stroke:#333,stroke-width:1px
         style P2 fill:#f9d,stroke:#333,stroke-width:1px
