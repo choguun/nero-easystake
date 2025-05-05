@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* White */
+    --foreground: 0 0% 9%; /* Near Black */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 0 0% 9%; /* Near Black */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 0 0% 9%; /* Near Black */
+    --primary: 0 0% 9%; /* Near Black */
+    --primary-foreground: 0 0% 100%; /* White */
+    --secondary: 0 0% 96.1%; /* Light Gray */
+    --secondary-foreground: 0 0% 9%; /* Near Black */
+    --muted: 0 0% 96.1%; /* Light Gray */
+    --muted-foreground: 0 0% 45.1%; /* Medium Gray */
+    --accent: 210 40% 50%; /* Muted Blue */
+    --accent-foreground: 0 0% 100%; /* White */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%; /* Light Gray */
+    --input: 0 0% 89.8%; /* Light Gray */
+    --ring: 210 40% 50%; /* Muted Blue for focus rings */
+    --chart-1: 0 0% 9%; /* Near Black */
+    --chart-2: 210 40% 50%; /* Muted Blue */
+    --chart-3: 0 0% 63.9%; /* Medium Gray */
+    --chart-4: 0 0% 83.1%; /* Lighter Gray */
+    --chart-5: 0 0% 96.1%; /* Lightest Gray */
+    --radius: 0.5rem;
+    /* Sidebar colors adjusted for B&W theme */
+    --sidebar-background: 0 0% 9%; /* Near Black */
+    --sidebar-foreground: 0 0% 98%; /* White */
+    --sidebar-primary: 210 40% 50%; /* Muted Blue */
+    --sidebar-primary-foreground: 0 0% 100%; /* White */
+    --sidebar-accent: 0 0% 15%; /* Dark Gray */
+    --sidebar-accent-foreground: 0 0% 98%; /* White */
+    --sidebar-border: 0 0% 15%; /* Dark Gray */
+    --sidebar-ring: 210 40% 50%; /* Muted Blue */
+  }
+  .dark {
+    --background: 0 0% 9%; /* Near Black */
+    --foreground: 0 0% 98%; /* White */
+    --card: 0 0% 9%; /* Near Black */
+    --card-foreground: 0 0% 98%; /* White */
+    --popover: 0 0% 9%; /* Near Black */
+    --popover-foreground: 0 0% 98%; /* White */
+    --primary: 0 0% 98%; /* White */
+    --primary-foreground: 0 0% 9%; /* Near Black */
+    --secondary: 0 0% 14.9%; /* Dark Gray */
+    --secondary-foreground: 0 0% 98%; /* White */
+    --muted: 0 0% 14.9%; /* Dark Gray */
+    --muted-foreground: 0 0% 62.8%; /* Lighter Gray */
+    --accent: 210 40% 50%; /* Muted Blue */
+    --accent-foreground: 0 0% 9%; /* Near Black */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%; /* Dark Gray */
+    --input: 0 0% 14.9%; /* Dark Gray */
+    --ring: 210 40% 50%; /* Muted Blue */
+    --chart-1: 0 0% 98%; /* White */
+    --chart-2: 210 40% 50%; /* Muted Blue */
+    --chart-3: 0 0% 63.9%; /* Medium Gray */
+    --chart-4: 0 0% 30%; /* Darker Gray */
+    --chart-5: 0 0% 14.9%; /* Darkest Gray */
+    /* Sidebar colors adjusted for dark B&W theme */
+    --sidebar-background: 0 0% 9%; /* Near Black */
+    --sidebar-foreground: 0 0% 98%; /* White */
+    --sidebar-primary: 210 40% 50%; /* Muted Blue */
+    --sidebar-primary-foreground: 0 0% 9%; /* Near Black */
+    --sidebar-accent: 0 0% 15%; /* Dark Gray */
+    --sidebar-accent-foreground: 0 0% 98%; /* White */
+    --sidebar-border: 0 0% 15%; /* Dark Gray */
+    --sidebar-ring: 210 40% 50%; /* Muted Blue */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1,"calt" 1; /* Enable optional ligatures */
+  }
+}
+
+/* Add clean and modern typography */
+@layer base {
+  body {
+    @apply font-sans; /* Use a generic sans-serif, Geist is already loaded */
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  h1 { @apply text-4xl lg:text-5xl; }
+  h2 { @apply text-3xl lg:text-4xl; }
+  h3 { @apply text-2xl lg:text-3xl; }
+  p { @apply leading-relaxed; } /* Slightly increased line-height */
+}
