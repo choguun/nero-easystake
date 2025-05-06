@@ -1,4 +1,4 @@
-import NEROLogoSquareIcon from './src/assets/NERO-Logo-square.svg'
+import NEROLogoSquareIcon from '@/assets/NERO-Logo-square.svg'
 
 const config = {
     rainbowKitProjectId: '04309ed1007e77d1f119b85205bb779d',
@@ -27,7 +27,7 @@ const config = {
         aa: {
           bundler: 'https://bundler.service.nerochain.io',
           paymaster: 'https://paymaster-testnet.nerochain.io',
-          paymasterAPIKey: import.meta.env.VITE_TESTNET_PAYMASTER_API ?? '',
+          paymasterAPIKey: process.env.NEXT_PUBLIC_TESTNET_PAYMASTER_API ?? '',
         },
         aaContracts: {
           entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
@@ -35,7 +35,7 @@ const config = {
           tokenPaymaster: '0x5a6680dFd4a77FEea0A7be291147768EaA2414ad',
         },
         web3auth: {
-          clientId: import.meta.env.VITE_TESTNET_WEB3AUTH_ID ?? '',
+          clientId: process.env.NEXT_PUBLIC_ESTNET_WEB3AUTH_ID ?? '',
           network: 'testnet',
           uiConfig: {
             appName: 'NERO',
@@ -54,13 +54,13 @@ const config = {
               name: 'google',
               verifier: 'NeroTest-Google-Maintest',
               typeOfLogin: 'google',
-              clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+              clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
             },
             facebook: {
               name: 'facebook',
               verifier: 'NeroTest-Facebook-Maintest',
               typeOfLogin: 'facebook',
-              clientId: import.meta.env.VITE_FACEBOOK_CLIENT_ID,
+              clientId: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
             },
           },
         },
@@ -83,7 +83,7 @@ const config = {
         aa: {
           bundler: 'https://bundler-mainnet.nerochain.io',
           paymaster: 'https://paymaster-mainnet.nerochain.io',
-          paymasterAPIKey: import.meta.env.VITE_MAINNET_PAYMASTER_API ?? '',
+          paymasterAPIKey: process.env.NEXT_PUBLIC_MAINNET_PAYMASTER_API ?? '',
         },
         aaContracts: {
           entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
@@ -91,7 +91,7 @@ const config = {
           tokenPaymaster: '0xC42E90D29D478ccFeCC28d3B838824E57e51F284',
         },
         web3auth: {
-          clientId: import.meta.env.VITE_MAINNET_WEB3AUTH_ID ?? '',
+          clientId: process.env.NEXT_PUBLIC_MAINNET_WEB3AUTH_ID ?? '',
           network: 'mainnet',
           uiConfig: {
             appName: 'NERO',
@@ -110,13 +110,13 @@ const config = {
               name: 'google',
               verifier: 'NeroTest-Google-Maintest',
               typeOfLogin: 'google',
-              clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+              clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
             },
             facebook: {
               name: 'facebook',
               verifier: 'NeroTest-Facebook-Maintest',
               typeOfLogin: 'facebook',
-              clientId: import.meta.env.VITE_FACEBOOK_CLIENT_ID,
+              clientId: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
             },
           },
         },
