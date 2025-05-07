@@ -50,35 +50,48 @@ export const useSupportedTokens = () => {
 
     fetchPromiseRef.current = (async () => {
       try {
-        const builderWithFreeGas = await initBuilder(true, undefined, 0)
+        // console.log('[useSupportedTokens] Initializing builder for FREE GAS check...');
+        const builderWithFreeGas = await initBuilder(true, undefined, 0);
+        // console.log('[useSupportedTokens] builderWithFreeGas initialized:', builderWithFreeGas);
         if (!builderWithFreeGas) {
-          throw new Error('Failed to initialize builder')
+          // console.error('[useSupportedTokens] Failed to initialize builderWithFreeGas');
+          throw new Error('Failed to initialize builder for free gas check');
         }
 
-        let freeGasSupported = false
+        let freeGasSupported = false;
         try {
-          const freeGasResponse = await client.getSupportedTokens(builderWithFreeGas)
-          freeGasSupported = freeGasResponse.freeGas || false
+          // console.log('[useSupportedTokens] Calling client.getSupportedTokens for FREE GAS...');
+          const freeGasResponse = await client.getSupportedTokens(builderWithFreeGas);
+          // console.log('[useSupportedTokens] freeGasResponse from paymaster:', freeGasResponse);
+          freeGasSupported = freeGasResponse.freeGas || false;
+          // console.log('[useSupportedTokens] freeGasSupported evaluated to:', freeGasSupported);
         } catch (err) {
-          freeGasSupported = false
+          // console.error('[useSupportedTokens] Error during client.getSupportedTokens for FREE GAS:', err);
+          freeGasSupported = false;
         }
 
-        const builderWithToken = await initBuilder(true, undefined, 2)
+        // console.log('[useSupportedTokens] Initializing builder for TOKEN check...');
+        const builderWithToken = await initBuilder(true, undefined, 2);
+        // console.log('[useSupportedTokens] builderWithToken initialized:', builderWithToken);
         if (!builderWithToken) {
-          throw new Error('Failed to initialize builder')
+          // console.error('[useSupportedTokens] Failed to initialize builderWithToken');
+          throw new Error('Failed to initialize builder for token check');
         }
-        const response = await client.getSupportedTokens(builderWithToken)
+        // console.log('[useSupportedTokens] Calling client.getSupportedTokens for TOKENS...');
+        const response = await client.getSupportedTokens(builderWithToken);
+        // console.log('[useSupportedTokens] Token response from paymaster:', response);
 
-        setSupportedTokens(response.tokens || [])
+        setSupportedTokens(response.tokens || []);
         const sponsorship = {
           balance: response.native?.price?.toString() || '0',
           freeGas: freeGasSupported,
-        }
-        setSponsorshipInfo(sponsorship)
-        setIsSuccess(true)
-        hasDataRef.current = true
-        hasErrorRef.current = false
-        retryCountRef.current = 0
+        };
+        // console.log('[useSupportedTokens] Setting sponsorshipInfo:', sponsorship);
+        setSponsorshipInfo(sponsorship);
+        setIsSuccess(true);
+        hasDataRef.current = true;
+        hasErrorRef.current = false;
+        retryCountRef.current = 0;
         return {
           tokens: response.tokens || [],
           sponsorship,

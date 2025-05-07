@@ -17,7 +17,8 @@ import {
   TransactionProvider,
   WrapWagmiProvider,
 } from '@/contexts'
-import { useSignature, useAAtransfer, useSendUserOp, useConfig } from '@/hooks'
+import { useSignature, useAAtransfer, useSendUserOp, useConfig, useScreenManager } from '@/hooks'
+import ScreenRenderer from '@/components/ScreenRenderer'
 import '@rainbow-me/rainbowkit/styles.css'
 import { WalletConfig } from '@/types'
 import config from '@/nerowallet.config'
@@ -33,10 +34,17 @@ interface SocialWalletProps {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient()
-  // Wrap children with any necessary context providers
-  // Example:
-  // import { ThemeProvider } from 'next-themes';
-  // return <ThemeProvider attribute="class" defaultTheme="system" enableSystem>{children}</ThemeProvider>;
+  
+  // Inner component to access screen manager context for ScreenRenderer
+  const AppWithScreenRenderer = () => {
+    const { currentScreen } = useScreenManager();
+    return (
+      <>
+        {children}
+        <ScreenRenderer currentScreen={currentScreen} />
+      </>
+    );
+  };
 
   return <>
   <ConfigProvider config={config}>
@@ -53,7 +61,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                           <ClientProvider>
                             <SendUserOpProvider>
                               <TransactionProvider>
-                                {children}
+                                <AppWithScreenRenderer />
                               </TransactionProvider>
                             </SendUserOpProvider>
                           </ClientProvider>

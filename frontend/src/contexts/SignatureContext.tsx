@@ -75,6 +75,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
         loading,
         AAaddress,
         isConnected,
+        signer,
         simpleAccountInstance,
         signMessage,
         resetSignature,

@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { WEB3AUTH_NETWORK_TYPE } from '@web3auth/base'
-import { ContractInterface, BigNumberish } from 'ethers'
+import { ContractInterface, BigNumberish, Signer } from 'ethers'
 import { Client, UserOperationMiddlewareFn } from 'userop'
 import { Presets } from 'userop'
 import { SimpleAccount } from '@/helper/simpleAccount'
@@ -144,6 +144,7 @@ export interface SignatureContextProps {
   loading: boolean
   AAaddress: `0x${string}`
   isConnected: boolean
+  signer?: Signer
   simpleAccountInstance?: SimpleAccount
   signMessage: (pm?: 'token' | 'verifying' | 'legacy-token') => Promise<void>
   resetSignature: () => void
@@ -189,14 +190,15 @@ export interface UserOperation {
   function: string
   contractAddress: string
   abi: ContractInterface
-  value: BigNumberish
+  value?: BigNumberish
   params: any[]
 }
 
 export interface UserOperationResultInterface {
   userOpHash: string
-  result: boolean
+  result: boolean | null
   transactionHash: string
+  error?: string
 }
 
 export interface SendUserOpContextProps {
