@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useContext, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { erc721Abi } from 'viem'

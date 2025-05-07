@@ -1,3 +1,5 @@
+'use client'
+
 import { useCallback, useContext, useState, useEffect, useRef } from 'react'
 import { BytesLike, ethers } from 'ethers'
 import { ClientContext, SendUserOpContext, SignatureContext } from '@/contexts'

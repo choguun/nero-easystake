@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useSupportedTokens, usePaymasterContext, useConfig } from '@/hooks'
 import { PaymasterToken, PAYMASTER_MODE } from '@/types/Paymaster'

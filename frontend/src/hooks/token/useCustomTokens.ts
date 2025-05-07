@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useCallback } from 'react'
 import { ERC20Token, NftWithImages } from '@/types'
 import {

@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { getPaymaster } from '@/helper/getPaymaster'
@@ -38,7 +40,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
         const address = await simpleAccount.getSender()
         setAAaddress(address as `0x${string}`)
       } catch (e) {
-        console.error('Error initializing SimpleAccount')
+        console.error('Error initializing SimpleAccount', e)
       } finally {
         setLoading(false)
       }

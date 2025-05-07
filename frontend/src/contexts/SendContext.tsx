@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useState, useEffect } from 'react'
 import { useBalance } from 'wagmi'
 import { useSignature } from '@/hooks'

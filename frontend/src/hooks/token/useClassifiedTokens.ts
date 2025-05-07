@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useMemo } from 'react'
 import { NeroToEthAddressMap } from '@/config/NeroToEthAddressMap'
 import { useSignature, useTokenContracts, useCustomERC20Tokens } from '@/hooks'

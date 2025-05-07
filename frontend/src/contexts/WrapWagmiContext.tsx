@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useContext } from 'react'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { metaMaskWallet, bitgetWallet, gateWallet } from '@rainbow-me/rainbowkit/wallets'

@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useState } from 'react'
 import { Presets } from 'userop'
 import { PaymasterContextType, ProviderProps } from '@/types'

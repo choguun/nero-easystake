@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useState, useEffect } from 'react'
 import { NFTCardType, NFTContextType, ProviderProps } from '@/types'
 import { isValidAddress } from '@/utils'

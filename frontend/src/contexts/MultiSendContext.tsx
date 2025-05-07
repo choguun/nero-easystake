@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useState, useEffect, useCallback } from 'react'
 import { RecipientData, MultiSendContextProps, ProviderProps } from '@/types'
 import { validateAmount, isValidAddress } from '@/utils'

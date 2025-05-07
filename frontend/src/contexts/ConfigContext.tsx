@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useCallback, useState } from 'react'
 import { ConfigContextProps, ConfigProviderProps } from '@/types'
 

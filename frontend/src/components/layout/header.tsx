@@ -1,12 +1,15 @@
+'use client'
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, Wallet } from 'lucide-react';
+import { CustomConnectButton } from '../features/connect';
 
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-screen-2xl items-center px-10">
+      <div className="container flex h-16 max-w-screen-2xl items-center px-10">
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
              {/* Placeholder for Logo - replace with actual SVG or Image */}
@@ -100,11 +103,11 @@ export function Header() {
                 <span className="font-bold text-primary">EasyStake</span>
             </Link>
         </div>
-        <div className="flex flex-1 items-center justify-end space-x-2">
-          <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
+
+          {/* <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
             <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
-          </Button>
-        </div>
+          </Button> */}
+          <CustomConnectButton mode={'button'} />
       </div>
     </header>
   );

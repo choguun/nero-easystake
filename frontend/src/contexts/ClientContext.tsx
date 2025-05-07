@@ -1,3 +1,5 @@
+'use client'
+
 import React, { createContext, useState, useEffect } from 'react'
 import { Client } from 'userop'
 import { useConfig } from '@/hooks'

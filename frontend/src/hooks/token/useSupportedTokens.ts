@@ -1,3 +1,5 @@
+'use client'
+
 import { useContext, useState, useCallback, useRef } from 'react'
 import { ClientContext } from '@/contexts'
 import { useEthersSigner } from '@/hooks'

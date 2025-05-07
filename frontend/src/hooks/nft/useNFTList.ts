@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { ethers } from 'ethers'
 import getNftImgNameFromUri from '@/helper/getNftImgNameFromUri'

@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useCallback } from 'react'
 import { useAsyncState } from './useAsyncState'
 import { TransactionOptions, UseTransactionReturn } from '@/types'

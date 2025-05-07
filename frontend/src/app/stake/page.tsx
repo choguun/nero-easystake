@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Wallet, ArrowRightLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { CustomConnectButton } from '@/components/features/connect';
 
 // Mock data - replace with actual data fetching
 const MOCK_NERO_BALANCE = 1000;

@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect } from 'react'
 import { erc20Abi, erc721Abi } from 'viem'
 import { useReadContracts } from 'wagmi'
