@@ -26,6 +26,7 @@ const SendUserOpPanel: React.FC = () => {
   } = useContext(SendUserOpContext)!
 
   const { sendUserOp } = useSendUserOp()
+  const [isSending, setIsSending] = useState(false);
 
   const handleClosePanel = () => {
     setIsWalletPanel(false)
@@ -44,6 +45,7 @@ const SendUserOpPanel: React.FC = () => {
       handleClosePanel()
       return
     }
+    setIsSending(true);
     try {
       await sendUserOp(
         paymaster, 
@@ -53,6 +55,7 @@ const SendUserOpPanel: React.FC = () => {
     } catch (error) {
       console.error('[SendUserOpPanel] Error calling sendUserOp from panel:', error)
     } finally {
+      setIsSending(false);
       // Panel should remain open for result/error display from useSendUserOp hook
     }
   }
@@ -77,16 +80,17 @@ const SendUserOpPanel: React.FC = () => {
             icon={AiFillCaretLeft}
             iconPosition='left'
             className='flex items-center text-sm text-text-primary rounded-full'
+            disabled={isSending}
           >
             Back / Reject
           </Button>
           <Button
             onClick={handleConfirmAndSend}
-            disabled={!isTransferReady || !isUserOperationSet()}
-            variant={isTransferReady && isUserOperationSet() ? 'primary' : 'secondary'}
-            className={`px-6 py-2 ${isTransferReady && isUserOperationSet() ? '' : 'opacity-50 cursor-not-allowed'}`}
+            disabled={!isTransferReady || !isUserOperationSet() || isSending}
+            variant={isTransferReady && isUserOperationSet() && !isSending ? 'primary' : 'secondary'}
+            className={`px-6 py-2 ${(isTransferReady && isUserOperationSet() && !isSending) ? '' : 'opacity-50 cursor-not-allowed'}`}
           >
-            Confirm & Send
+            {isSending ? 'Sending...' : 'Confirm & Send'}
           </Button>
         </div>
       }
