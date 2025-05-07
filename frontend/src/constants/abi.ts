@@ -35,3 +35,14 @@ export const ERC721_ABI = [
   'event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)',
   'event ApprovalForAll(address indexed owner, address indexed operator, bool approved)',
 ]
+
+export const STAKING_ABI = [
+  // Read-Only Functions
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+  'function name() view returns (string)',
+  
+  'function depositEth() external',
+  'function redeemEth(uint256 shares, address receiver) external',
+]
