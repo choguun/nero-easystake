@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useSignature, useSendUserOp, useConfig } from '@/hooks'
+import React, { useState, useEffect, useCallback, useContext } from 'react'
+import { useSignature, useSendUserOp, useConfig, usePaymasterContext } from '@/hooks'
 import { ethers, utils as ethersUtils, Contract, Signer as EthersSigner } from 'ethers'
 import { STAKING_ABI } from '@/constants/abi'
 import { UserOperationResultInterface } from '@/types'
+import { SendUserOpContext } from '@/contexts'
 
 const TESTNET_RPC_URL = 'https://rpc-testnet.nerochain.io';
 
@@ -21,6 +22,8 @@ const StakePage = () => {
   const { AAaddress, isConnected, signer: aaSignerDetails } = useSignature()
   const { execute, waitForUserOpResult, checkUserOpStatus } = useSendUserOp()
   const { entryPoint: entryPointAddress, rpcUrl: configRpcUrl } = useConfig();
+  const sendUserOpCtx = useContext(SendUserOpContext);
+  const paymasterCtx = usePaymasterContext();
 
   // EOA Signer - assuming aaSignerDetails might be the EOA signer if no SimpleAccount is initialized yet,
   // or if useEthersSigner() from wagmi is providing the EOA signer.
@@ -124,6 +127,8 @@ const StakePage = () => {
           console.log(`[StakePage] ${currentAction} successful for UserOpHash: ${userOpHash}`);
           setTxStatus(`${currentAction === 'stake' ? 'Staking' : currentAction === 'redeem' ? 'Redemption' : 'UserOp'} successful!`)
           setIsPollingStatus(false)
+          if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+          if (paymasterCtx) paymasterCtx.clearToken();
           fetchNativeBalance()
           fetchShareBalance()
           setUserOpHash(null) 
@@ -150,7 +155,7 @@ const StakePage = () => {
     return () => {
       if (intervalId) window.clearInterval(intervalId)
     }
-  }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchNativeBalance, fetchShareBalance, currentAction])
+  }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchNativeBalance, fetchShareBalance, currentAction, sendUserOpCtx, paymasterCtx])
 
   const commonTxValidations = () => {
     const providerForChecks = getProvider();
