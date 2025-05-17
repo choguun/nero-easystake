@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react'
 import { AiFillCaretLeft, AiFillCaretRight } from 'react-icons/ai'
 import { TokenIcon, TokenSearchInput } from '@/components/features/token'
-import { PaymasterToken, TokenListProps } from '@/types/Paymaster'
+import { PaymasterModeValue, PaymasterToken, TokenListProps } from '@/types/Paymaster'
 import { getCustomERC20Tokens, truncateAddress } from '@/utils'
 
 const TokenList: React.FC<TokenListProps> = ({
   tokens,
   selectedToken,
+  selectedPaymasterType,
+  setSelectedPaymasterType,
   scrollContainerRef,
   onTokenClick,
   onScrollLeft,
@@ -14,6 +16,11 @@ const TokenList: React.FC<TokenListProps> = ({
   onBackClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+
+  const PAYMASTER_TYPE_OPTIONS = [
+    { label: 'Pre-payment', value: 1 }, // PAYMASTER_MODE.PRE_FUND
+    { label: 'Post-payment', value: 2 }, // PAYMASTER_MODE.POST_FUND
+  ];
 
   const filteredTokens = useMemo(() => {
     if (!searchQuery.trim()) return tokens
@@ -132,6 +139,23 @@ const TokenList: React.FC<TokenListProps> = ({
                 : 'None'}
             </span>
           </div>
+          <div className="flex flex-col space-y-2 mt-3 p-2 border-t border-gray-200">
+                <div className="text-xs text-gray-600 font-semibold text-center">Select Paymaster Mode:</div>
+                <div className="flex space-x-3 justify-center">
+                  {PAYMASTER_TYPE_OPTIONS.map(opt => (
+                    <label key={opt.value} className="flex items-center space-x-1 cursor-pointer p-2 rounded-md hover:bg-gray-100 transition-colors">
+                      <input
+                        type="radio"
+                        value={opt.value}
+                        checked={selectedPaymasterType === opt.value}
+                        onChange={() => setSelectedPaymasterType(opt.value as PaymasterModeValue)}
+                        className="form-radio h-3 w-3 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="text-xs text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
         </>
       ) : (
         <div className='p-4 text-center text-gray-500'>

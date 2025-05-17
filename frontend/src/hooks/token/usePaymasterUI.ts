@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useSupportedTokens, usePaymasterContext, useConfig } from '@/hooks'
-import { PaymasterToken, PAYMASTER_MODE } from '@/types/Paymaster'
+import { PaymasterToken, PAYMASTER_MODE, PaymasterModeValue } from '@/types/Paymaster'
 
 export const usePaymasterUI = () => {
   const [screen, setScreen] = useState<'selection' | 'tokens'>('selection')
@@ -25,6 +25,8 @@ export const usePaymasterUI = () => {
   const {
     selectedToken,
     setSelectedToken,
+    selectedPaymasterType,
+    setSelectedPaymasterType,
     setSupportedTokens,
     setPaymaster,
     setIsPaymentSelected,
@@ -109,6 +111,10 @@ export const usePaymasterUI = () => {
     }
   }
 
+  const handlePaymasterTypeChange = (type: PaymasterModeValue) => {
+    setSelectedPaymasterType(type)
+  }
+
   const scrollLeft = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollBy({ left: -100, behavior: 'smooth' })
@@ -167,11 +173,13 @@ export const usePaymasterUI = () => {
     supportedTokens: combinedTokens,
     sponsorshipInfo,
     selectedToken,
+    selectedPaymasterType,
     isSponsoredSelected,
     scrollContainerRef,
     fetchTokens,
     handleRetry,
     handleTokenClick,
+    handlePaymasterTypeChange,
     scrollLeft,
     scrollRight,
     handleSelectPaymentType,

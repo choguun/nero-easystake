@@ -164,6 +164,8 @@ export interface PaymasterContextType {
   setPaymaster: (value: boolean) => void
   selectedToken: string | null
   setSelectedToken: (value: string | null) => void
+  selectedPaymasterType: PaymasterModeValue
+  setSelectedPaymasterType: (value: PaymasterModeValue) => void
   supportedTokens: PaymasterToken[]
   setSupportedTokens: (value: PaymasterToken[]) => void
   freeGas: boolean

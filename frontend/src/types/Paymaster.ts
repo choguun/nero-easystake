@@ -69,6 +69,8 @@ export interface PaymentOptionProps {
 export interface TokenListProps {
   tokens: PaymasterToken[]
   selectedToken: string | null
+  selectedPaymasterType: PaymasterModeValue
+  setSelectedPaymasterType: (value: PaymasterModeValue) => void
   scrollContainerRef: RefObject<HTMLDivElement>
   onTokenClick: (token: PaymasterToken) => void
   onScrollLeft: () => void

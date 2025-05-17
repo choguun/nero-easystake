@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { FaGift } from 'react-icons/fa'
 import { GoArrowSwitch } from 'react-icons/go'
 import { MdAdsClick } from 'react-icons/md'
 import { PaymentOption, TokenList, ErrorDisplay } from './components'
 import { TokenIcon } from '@/components/features/token'
 import { usePaymasterUI } from '@/hooks'
+import { PaymasterModeValue, PAYMASTER_MODE } from '@/types/Paymaster'
 
 const PaymasterPanel: React.FC = () => {
   const {
@@ -17,11 +18,13 @@ const PaymasterPanel: React.FC = () => {
     supportedTokens,
     sponsorshipInfo,
     selectedToken,
+    selectedPaymasterType,
     isSponsoredSelected,
     scrollContainerRef,
     fetchTokens,
     handleRetry,
     handleTokenClick,
+    handlePaymasterTypeChange,
     scrollLeft,
     scrollRight,
     handleSelectPaymentType,
@@ -52,20 +55,21 @@ const PaymasterPanel: React.FC = () => {
 
         <div
           className={`relative transition-transform duration-500 ${isFlipped ? 'rotate-y-180' : ''}`}
-          style={{ transformStyle: 'preserve-3d' }}
+          style={{ transformStyle: 'preserve-3d',
+           minHeight: '80px' /* Ensure enough space for the card content */ }}
         >
           {/* Sponsored Gas Option */}
           <div className={`absolute w-full backface-hidden ${!isFlipped ? 'block' : 'hidden'}`}>
             <PaymentOption
               isSelected={isSponsoredSelected}
-              isDisabled={!sponsorshipInfo.freeGas}
-              onClick={() => sponsorshipInfo.freeGas && handleSelectPaymentType('sponsored')}
+              isDisabled={!sponsorshipInfo?.freeGas}
+              onClick={() => sponsorshipInfo?.freeGas && handleSelectPaymentType('sponsored')}
               icon={
                 <FaGift
                   className={`text-xs ${
                     isSponsoredSelected
                       ? 'text-white scale-110'
-                      : sponsorshipInfo.freeGas
+                      : sponsorshipInfo?.freeGas
                         ? 'text-white'
                         : 'text-gray-400'
                   }`}
@@ -73,11 +77,11 @@ const PaymasterPanel: React.FC = () => {
               }
               title='Sponsored Gas'
               subtitle={
-                sponsorshipInfo.freeGas
+                sponsorshipInfo?.freeGas
                   ? 'Free transactions available'
                   : 'Sponsored transactions not available'
               }
-              rightIcon={sponsorshipInfo.freeGas ? <MdAdsClick className='text-md' /> : undefined}
+              rightIcon={sponsorshipInfo?.freeGas ? <MdAdsClick className='text-md' /> : undefined}
             />
           </div>
 
@@ -86,26 +90,28 @@ const PaymasterPanel: React.FC = () => {
             className={`absolute w-full backface-hidden rotate-y-180 ${isFlipped ? 'block' : 'hidden'}`}
           >
             <PaymentOption
-              isDisabled={supportedTokens.length === 0}
-              onClick={() => supportedTokens.length > 0 && handleSelectPaymentType('token')}
+              isDisabled={!supportedTokens || supportedTokens.length === 0}
+              onClick={() =>
+                supportedTokens && supportedTokens.length > 0 && handleSelectPaymentType('token', selectedPaymasterType ?? PAYMASTER_MODE.PRE_FUND)
+              }
               icon={
                 <TokenIcon
-                  tokenAddress={supportedTokens[0]?.token}
-                  symbol={supportedTokens[0]?.symbol}
+                  tokenAddress={supportedTokens?.[0]?.token}
+                  symbol={supportedTokens?.[0]?.symbol}
                   size='xs'
-                  isNative={supportedTokens[0]?.type === 'native'}
+                  isNative={supportedTokens?.[0]?.type === 'native'}
                 />
               }
               title='Pay with Token'
               subtitle={
-                supportedTokens.length > 0
+                supportedTokens && supportedTokens.length > 0
                   ? `${supportedTokens.length} tokens available`
                   : 'No tokens available'
               }
               isTokenOption={true}
-              isNativeToken={supportedTokens[0]?.type === 'native'}
+              isNativeToken={supportedTokens?.[0]?.type === 'native'}
               rightIcon={
-                supportedTokens.length > 0 ? <MdAdsClick className='text-md' /> : undefined
+                supportedTokens && supportedTokens.length > 0 ? <MdAdsClick className='text-md' /> : undefined
               }
             />
           </div>
@@ -116,8 +122,10 @@ const PaymasterPanel: React.FC = () => {
 
   return (
     <TokenList
-      tokens={supportedTokens}
+      tokens={supportedTokens || []}
       selectedToken={selectedToken}
+      selectedPaymasterType={selectedPaymasterType ?? PAYMASTER_MODE.PRE_FUND}
+      setSelectedPaymasterType={handlePaymasterTypeChange}
       scrollContainerRef={scrollContainerRef}
       onTokenClick={handleTokenClick}
       onScrollLeft={scrollLeft}

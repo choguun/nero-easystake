@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useState } from 'react'
+import React, { createContext, useState, Dispatch, SetStateAction } from 'react'
 import { Presets } from 'userop'
 import { PaymasterContextType, ProviderProps } from '@/types'
 import {
@@ -17,6 +17,7 @@ export const PaymasterContext = createContext<PaymasterContextType | undefined>(
 export const PaymasterProvider: React.FC<ProviderProps> = ({ children }) => {
   const [paymaster, setPaymaster] = useState(false)
   const [selectedToken, setSelectedToken] = useState<string | null>(null)
+  const [selectedPaymasterType, setSelectedPaymasterType] = useState<PaymasterModeValue>(PAYMASTER_MODE.PRE_FUND)
   const [supportedTokens, setSupportedTokens] = useState<PaymasterToken[]>([])
   const [freeGas, setFreeGas] = useState(false)
   const [paymasterData, setPaymasterData] = useState<PaymasterData | null>(null)
@@ -36,6 +37,7 @@ export const PaymasterProvider: React.FC<ProviderProps> = ({ children }) => {
   const clearPaymasterStates = () => {
     setPaymaster(false)
     setSelectedToken(null)
+    setSelectedPaymasterType(PAYMASTER_MODE.PRE_FUND)
     setFreeGas(false)
     setSelectedMode({ value: PAYMASTER_MODE.FREE_GAS })
     setSponsorshipInfo((prev) => ({ ...prev, freeGas: false }))
@@ -45,66 +47,67 @@ export const PaymasterProvider: React.FC<ProviderProps> = ({ children }) => {
   const setSponsoredGas = () => {
     clearPaymasterStates()
     setPaymaster(true)
+    setSelectedToken(null)
+    setSelectedPaymasterType(PAYMASTER_MODE.FREE_GAS)
     setFreeGas(true)
     setSelectedMode({ value: PAYMASTER_MODE.FREE_GAS })
     setSponsorshipInfo((prev) => ({ ...prev, freeGas: true }))
+    setIsPaymentSelected(true)
   }
 
   const setTokenPayment = (
     token: string | null,
-    mode: PaymasterModeValue = PAYMASTER_MODE.POST_FUND,
+    mode: PaymasterModeValue = PAYMASTER_MODE.PRE_FUND,
   ) => {
     clearPaymasterStates()
     if (token) {
-      if (mode === PAYMASTER_MODE.NATIVE) {
-        setPaymaster(false)
-      } else {
-        setPaymaster(true)
-      }
+      setPaymaster(mode !== PAYMASTER_MODE.NATIVE)
       setSelectedToken(token)
+      setSelectedPaymasterType(mode)
       setFreeGas(false)
       setSelectedMode({ value: mode })
       setSponsorshipInfo((prev) => ({ ...prev, freeGas: false }))
+      setIsPaymentSelected(true)
+    } else {
+      clearPaymasterStates()
     }
   }
 
   const clearToken = () => {
-    setPaymaster(false)
-    setSelectedToken(null)
-    setFreeGas(false)
-    setSelectedMode({ value: PAYMASTER_MODE.FREE_GAS })
-    setSponsorshipInfo((prev) => ({ ...prev, freeGas: false }))
+    clearPaymasterStates()
+  }
+
+  const contextValue: PaymasterContextType = {
+    paymaster,
+    setPaymaster,
+    selectedToken,
+    setSelectedToken,
+    selectedPaymasterType,
+    setSelectedPaymasterType,
+    supportedTokens,
+    setSupportedTokens,
+    freeGas,
+    setFreeGas,
+    paymasterData,
+    setPaymasterData,
+    error,
+    setError,
+    builder,
+    setBuilder,
+    selectedMode,
+    setSelectedMode,
+    sponsorshipInfo,
+    setSponsorshipInfo,
+    isPaymentSelected,
+    setIsPaymentSelected,
+    clearPaymasterStates,
+    setSponsoredGas,
+    setTokenPayment,
+    clearToken,
   }
 
   return (
-    <PaymasterContext.Provider
-      value={{
-        paymaster,
-        setPaymaster,
-        selectedToken,
-        setSelectedToken,
-        supportedTokens,
-        setSupportedTokens,
-        freeGas,
-        setFreeGas,
-        paymasterData,
-        setPaymasterData,
-        error,
-        setError,
-        builder,
-        setBuilder,
-        selectedMode,
-        setSelectedMode,
-        sponsorshipInfo,
-        setSponsorshipInfo,
-        clearPaymasterStates,
-        setSponsoredGas,
-        setTokenPayment,
-        clearToken,
-        isPaymentSelected,
-        setIsPaymentSelected,
-      }}
-    >
+    <PaymasterContext.Provider value={contextValue}>
       {children}
     </PaymasterContext.Provider>
   )
