@@ -9,6 +9,14 @@ import { OperationData, UserOperation, UserOperationResultInterface, screens } f
 import { PAYMASTER_MODE } from '@/types/Paymaster'
 import { useBuilderWithPaymaster } from '@/utils'
 
+// Add ERC20 ABI for approval
+const ERC20_ABI = [
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function allowance(address owner, address spender) external view returns (uint256)'
+];
+
+const EASYSTAKE_VAULT_ADDRESS = '0x577937D20415183c7C50F5773A0C02D5B8aa344c';
+
 export const useSendUserOp = () => {
   const { navigateTo, currentScreen } = useScreenManager()
   const sendUserOpContext = useContext(SendUserOpContext)
@@ -103,6 +111,34 @@ export const useSendUserOp = () => {
     [estimateUserOpFee, userOperations],
   )
 
+  const approveERC20Token = useCallback(async (tokenAddress: string, amount: ethers.BigNumber) => {
+    if (!signer) {
+      console.error('[useSendUserOp] approveERC20Token: No signer available');
+      return false;
+    }
+
+    try {
+      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+      const currentAllowance = await tokenContract.allowance(await signer.getAddress(), EASYSTAKE_VAULT_ADDRESS);
+      
+      if (currentAllowance.gte(amount)) {
+        console.log('[useSendUserOp] approveERC20Token: Sufficient allowance already exists');
+        return true;
+      }
+
+      console.log('[useSendUserOp] approveERC20Token: Approving token spend...');
+      const approveTx = await tokenContract.approve(EASYSTAKE_VAULT_ADDRESS, amount);
+      console.log('[useSendUserOp] approveERC20Token: Approval transaction sent:', approveTx.hash);
+      
+      await approveTx.wait();
+      console.log('[useSendUserOp] approveERC20Token: Approval confirmed');
+      return true;
+    } catch (error) {
+      console.error('[useSendUserOp] approveERC20Token: Error:', error);
+      return false;
+    }
+  }, [signer]);
+
   const execute = useCallback(async (operation: UserOperation): Promise<UserOperationResultInterface> => {
     console.log('[useSendUserOp execute] Initiating operation:', operation);
     resultRef.current = null
@@ -170,6 +206,50 @@ export const useSendUserOp = () => {
         }
         console.log('[useSendUserOp] sendUserOp: Starting...', { usePaymaster, paymasterTokenAddress, type });
 
+        // Add ERC20 approval for paymaster types 1 and 2
+        if (usePaymaster && paymasterTokenAddress && (type === PAYMASTER_MODE.PRE_FUND || type === PAYMASTER_MODE.POST_FUND)) {
+          console.log('[useSendUserOp] sendUserOp: Checking and handling ERC20 approval...');
+          const estimatedFee = await estimateUserOpFeeWrapper(usePaymaster, paymasterTokenAddress, type);
+          let approvalAmount;
+          try {
+            if (typeof estimatedFee === 'string') {
+              approvalAmount = ethers.utils.parseUnits(estimatedFee, 18);
+            } else if (ethers.BigNumber.isBigNumber(estimatedFee)) {
+              approvalAmount = estimatedFee;
+            } else {
+              approvalAmount = ethers.BigNumber.from(estimatedFee);
+            }
+            approvalAmount = approvalAmount.mul(120).div(100);
+            console.log('[useSendUserOp] sendUserOp: Approval amount calculated:', {
+              originalFee: estimatedFee,
+              parsedAmount: approvalAmount.toString()
+            });
+          } catch (error) {
+            console.error('[useSendUserOp] sendUserOp: Error parsing estimated fee:', error);
+            const errorResult = {
+              userOpHash: 'ERROR_FEE_PARSING',
+              result: false,
+              transactionHash: '',
+              error: 'Failed to parse estimated fee for approval'
+            };
+            setLatestUserOpResult(errorResult);
+            return errorResult;
+          }
+          
+          const approved = await approveERC20Token(paymasterTokenAddress, approvalAmount);
+          if (!approved) {
+            console.error('[useSendUserOp] sendUserOp: ERC20 approval failed');
+            const errorResult = {
+              userOpHash: 'ERROR_ERC20_APPROVAL_FAILED',
+              result: false,
+              transactionHash: '',
+              error: 'Failed to approve ERC20 token for paymaster'
+            };
+            setLatestUserOpResult(errorResult);
+            return errorResult;
+          }
+        }
+
         let operations: { to: string; value: ethers.BigNumberish; data: BytesLike }[] = []
 
         if (usePaymaster && paymasterTokenAddress && type !== PAYMASTER_MODE.FREE_GAS) {
@@ -234,21 +314,26 @@ export const useSendUserOp = () => {
         }
         console.log('[useSendUserOp] sendUserOp: UserOp built by builder:', userOpForExecution);
 
-        // START --- Manual Gas Price Override ---
-        // Ensure ethers.utils is available or import utils directly if not already.
-        // Assuming ethers is imported as: import { ethers } from 'ethers'
-        const reasonableMaxFeePerGas = ethers.utils.parseUnits('600', 'gwei').toString(); 
-        const reasonableMaxPriorityFeePerGas = ethers.utils.parseUnits('50', 'gwei').toString();
+        // Get the current operation from the builder
+        const builderOp = (userOpForExecution as any).currOp;
+        
+        // Update the builder's current operation with our gas prices
+        builderOp.maxFeePerGas = '0x493e0';
+        builderOp.maxPriorityFeePerGas = '0x7A120';
 
-        console.log(`[useSendUserOp] sendUserOp: Original gas fees on built op: maxFeePerGas=${(userOpForExecution as any).maxFeePerGas}, maxPriorityFeePerGas=${(userOpForExecution as any).maxPriorityFeePerGas}`);
-        
-        // It's crucial that userOpForExecution allows these fields to be set.
-        // The IUserOperation type might be partial, actual object might be different.
-        (userOpForExecution as any).maxFeePerGas = reasonableMaxFeePerGas;
-        (userOpForExecution as any).maxPriorityFeePerGas = reasonableMaxPriorityFeePerGas;
-        
-        console.log(`[useSendUserOp] sendUserOp: Overridden gas fees on op: maxFeePerGas=${(userOpForExecution as any).maxFeePerGas}, maxPriorityFeePerGas=${(userOpForExecution as any).maxPriorityFeePerGas}`);
-        // END --- Manual Gas Price Override ---
+        // Set the gas limits to the specified hex values
+        builderOp.callGasLimit = '0x493e0';
+        builderOp.verificationGasLimit = '0x7A120';
+        builderOp.preVerificationGas = '0x5208';
+
+        // Log the final operation details
+        console.log('[useSendUserOp] sendUserOp: Final operation details:', {
+            maxFeePerGas: builderOp.maxFeePerGas,
+            maxPriorityFeePerGas: builderOp.maxPriorityFeePerGas,
+            callGasLimit: builderOp.callGasLimit,
+            verificationGasLimit: builderOp.verificationGasLimit,
+            preVerificationGas: builderOp.preVerificationGas
+        });
 
         console.log('[useSendUserOp] sendUserOp: Sending UserOperation to client with potentially overridden gas fees...');
         const res = await client.sendUserOperation(userOpForExecution, {
@@ -314,7 +399,9 @@ export const useSendUserOp = () => {
       userOperations,
       ensurePaymasterApproval,
       setUserOperations,
-      setLatestUserOpResult
+      setLatestUserOpResult,
+      estimateUserOpFeeWrapper,
+      approveERC20Token
     ],
   )
 
