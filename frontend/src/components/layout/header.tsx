@@ -29,6 +29,18 @@ export function Header() {
             >
               Stake
             </Link>
+            <Link
+              href="/swap"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium" // Highlight Stake link
+            >
+              Swap
+            </Link>
+            <Link
+              href="/liquidity"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium" // Highlight Stake link
+            >
+              Liquidity
+            </Link>
           </nav>
         </div>
         {/* Mobile Menu */}

@@ -6,29 +6,25 @@ import { ethers, utils as ethersUtils, Contract, Signer as EthersSigner } from '
 import { STAKING_ABI } from '@/constants/abi'
 import { UserOperationResultInterface } from '@/types'
 import { SendUserOpContext } from '@/contexts'
+import { CustomConnectButton } from '@/components/features/connect';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const TESTNET_RPC_URL = 'https://rpc-testnet.nerochain.io';
 
-// --- PLACEHOLDERS - REPLACE THESE (if necessary, though address is now set) --- 
-const EASYSTAKE_VAULT_ADDRESS = '0x577937D20415183c7C50F5773A0C02D5B8aa344c' 
+const EASYSTAKE_VAULT_ADDRESS = '0x577937D20415183c7C50F5773A0C02D5B8aa344c';
 const EasyStakeVaultABI = STAKING_ABI;
-const VAULT_DECIMALS = 18; 
-// --- END PLACEHOLDERS ---
+const VAULT_DECIMALS = 18;
 
 const ENTRYPOINT_ABI_DEPOSIT_TO = ['function depositTo(address account) external payable'];
-const EOA_FUNDING_AMOUNT = ethersUtils.parseEther("0.1"); // Direct EOA funding amount
+const EOA_FUNDING_AMOUNT = ethersUtils.parseEther("0.1");
 
 const StakePage = () => {
   const { AAaddress, isConnected, signer: aaSignerDetails } = useSignature()
-  const { execute, waitForUserOpResult, checkUserOpStatus } = useSendUserOp()
+  const { execute, checkUserOpStatus } = useSendUserOp()
   const { entryPoint: entryPointAddress, rpcUrl: configRpcUrl } = useConfig();
   const sendUserOpCtx = useContext(SendUserOpContext);
   const paymasterCtx = usePaymasterContext();
 
-  // EOA Signer - assuming aaSignerDetails might be the EOA signer if no SimpleAccount is initialized yet,
-  // or if useEthersSigner() from wagmi is providing the EOA signer.
-  // This might need adjustment based on how `useSignature` provides the raw EOA signer.
-  // For now, we assume aaSignerDetails is, or can provide, the EOA signer.
   const eoaSigner = aaSignerDetails as EthersSigner | undefined;
 
   const [nativeBalance, setNativeBalance] = useState<string>('0')
@@ -361,6 +357,12 @@ const StakePage = () => {
     <div className="container mx-auto p-4 pt-10 min-h-screen bg-gray-900 text-white">
       <h1 className="text-3xl font-bold mb-6 text-center text-purple-400">AA Stake & Redeem NERO</h1>
 
+      {!isConnected && (
+        <div className="flex justify-center">
+          <ConnectButton />
+        </div>
+      )}
+
       {isConnected && AAaddress && AAaddress !== '0x' ? (
         <div className="bg-gray-800 shadow-xl rounded-lg p-6 mb-8 max-w-md mx-auto">
           <p className="text-lg mb-1 text-gray-300">AA Wallet: <span className="font-mono text-sm text-purple-300 break-all">{AAaddress}</span></p>
@@ -379,13 +381,13 @@ const StakePage = () => {
           </button>
           {eoaSigner && entryPointAddress && AAaddress && AAaddress !== '0x' && (
             <div className="mt-2 pt-3 border-t border-gray-700">
-              <button 
+              {/* <button 
                 onClick={handleDirectFundAA}
                 disabled={isProcessingEoaFunding || isProcessingTx || isPollingStatus}
                 className="w-full px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 disabled:bg-gray-500 transition-colors"
               >
                 {isProcessingEoaFunding ? 'Funding AA via EOA...' : `Fund AA at EntryPoint (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO via EOA)`}
-              </button>
+              </button> */}
               {eoaFundingStatus && (
                 <p className={`text-xs mt-2 text-center ${eoaFundingStatus.includes('failed') || eoaFundingStatus.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
                   EOA Funding Status: {eoaFundingStatus}
