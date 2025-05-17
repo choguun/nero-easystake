@@ -17,9 +17,9 @@ interface Web3AuthConfig {
     networkType: WEB3AUTH_NETWORK_TYPE
     uiConfig: {
       appName: string
-      mode: string
+      mode: 'light' | 'dark'
       useLogoLoader: boolean
-      defaultLanguage: string
+      defaultLanguage: 'en' | 'de' | 'ja' | 'ko' | 'zh' | 'es' | 'fr' | 'pt' | 'nl'
       theme: {
         primary: string
       }
@@ -29,12 +29,6 @@ interface Web3AuthConfig {
     }
     loginConfig: {
       google: {
-        name: string
-        verifier: string
-        typeOfLogin: string
-        clientId: string
-      }
-      facebook: {
         name: string
         verifier: string
         typeOfLogin: string
@@ -77,9 +71,9 @@ export const rainbowWeb3AuthConnector = ({
         privateKeyProvider: privateKeyProvider,
         uiConfig: {
           appName: walletConfig.uiConfig.appName,
-          mode: 'light',
+          mode: walletConfig.uiConfig.mode,
           useLogoLoader: walletConfig.uiConfig.useLogoLoader,
-          defaultLanguage: 'en',
+          defaultLanguage: walletConfig.uiConfig.defaultLanguage,
           theme: {
             primary: walletConfig.uiConfig.theme.primary,
           },
@@ -99,20 +93,18 @@ export const rainbowWeb3AuthConnector = ({
             google: {
               name: walletConfig.loginConfig.google.name,
               verifier: walletConfig.loginConfig.google.verifier,
-              typeOfLogin: 'google', // Pass on the login provider of the verifier you've created
-              clientId: walletConfig.loginConfig.google.clientId, // Pass on the Google `Client ID` here'
-            },
-            facebook: {
-              name: walletConfig.loginConfig.facebook.name,
-              verifier: walletConfig.loginConfig.facebook.verifier, // Pass the Verifier name here
-              typeOfLogin: 'facebook', // Pass on the login provider of the verifier you've created
-              clientId: walletConfig.loginConfig.facebook.clientId, // Pass on the Google `Client ID` here
+              typeOfLogin: 'google',
+              clientId: walletConfig.loginConfig.google.clientId,
             },
           },
         },
       })
 
-      web3AuthInstance.configureAdapter(web3AuthAdapterInstance)
+      try {
+        web3AuthInstance.configureAdapter(web3AuthAdapterInstance);
+      } catch (error) {
+        console.error('Error configuring Web3Auth adapter:', error);
+      }
 
       return createWagmiConnector((config) => ({
         ...Web3AuthConnector({
