@@ -45,6 +45,11 @@ const StakePage = () => {
   const [eoaFundingStatus, setEoaFundingStatus] = useState<string>('');
   const [isProcessingEoaFunding, setIsProcessingEoaFunding] = useState(false);
 
+  const [sendToAddress, setSendToAddress] = useState<string>('');
+  const [sendAmount, setSendAmount] = useState<string>('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState<string>('');
+
   const getProvider = useCallback(() => {
     if (eoaSigner && eoaSigner.provider) {
       return eoaSigner.provider;
@@ -333,6 +338,38 @@ const StakePage = () => {
     }
   }
 
+  const handleSendVaultToken = async () => {
+    if (!sendToAddress || !ethers.utils.isAddress(sendToAddress)) {
+      alert('Please enter a valid recipient address.');
+      return;
+    }
+    if (!sendAmount || parseFloat(sendAmount) <= 0) {
+      alert('Please enter a valid amount to send.');
+      return;
+    }
+    setIsSending(true);
+    setSendStatus('Preparing to send...');
+    try {
+      const amountToSend = ethers.utils.parseUnits(sendAmount, VAULT_DECIMALS);
+      const result = await execute({
+        function: 'transfer',
+        contractAddress: EASYSTAKE_VAULT_ADDRESS,
+        abi: EasyStakeVaultABI,
+        value: '0',
+        params: [sendToAddress, amountToSend],
+      }) as UserOperationResultInterface;
+      if (result && result.userOpHash && !result.error && result.result !== false) {
+        setSendStatus(`Send UserOp submitted: ${result.userOpHash}.`);
+      } else {
+        setSendStatus(`Send failed: ${result?.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      setSendStatus(`Send error: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const getButtonText = (actionType: 'stake' | 'redeem') => {
     if (currentAction === actionType) { // Only show specific status if it's for this button's action
       if (isProcessingTx && (actionType === 'stake' || actionType === 'redeem') ) { 
@@ -418,6 +455,40 @@ const StakePage = () => {
           <button onClick={handleRedeem} disabled={isProcessingTx || isPollingStatus || isProcessingEoaFunding || !redeemAmount || parseFloat(redeemAmount) <= 0 || shareBalance === 'Error' || parseFloat(shareBalance) < parseFloat(redeemAmount)} className="w-full px-6 py-3 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors">
             {getButtonText('redeem')}
           </button>
+        </div>
+      )}
+
+      {isConnected && AAaddress && AAaddress !== '0x' && (
+        <div className="bg-gray-800 shadow-xl rounded-lg p-6 max-w-md mx-auto mt-6">
+          <h2 className="text-2xl font-semibold mb-3 text-center text-purple-300">Send stNERO</h2>
+          <input
+            type="text"
+            value={sendToAddress}
+            onChange={e => setSendToAddress(e.target.value)}
+            placeholder="Recipient address"
+            disabled={isSending}
+            className="w-full mb-3 px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <input
+            type="number"
+            value={sendAmount}
+            onChange={e => setSendAmount(e.target.value)}
+            placeholder="Amount of stNERO to send"
+            disabled={isSending}
+            className="w-full mb-3 px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <button
+            onClick={handleSendVaultToken}
+            disabled={isSending || !sendToAddress || !sendAmount}
+            className="w-full px-6 py-3 font-semibold text-white bg-yellow-600 rounded-md hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+          >
+            {isSending ? 'Sending...' : 'Send stNERO'}
+          </button>
+          {sendStatus && (
+            <p className={`mt-2 text-center text-sm ${sendStatus.includes('error') || sendStatus.includes('failed') ? 'text-red-400' : 'text-blue-400'}`}>
+              {sendStatus}
+            </p>
+          )}
         </div>
       )}
 
