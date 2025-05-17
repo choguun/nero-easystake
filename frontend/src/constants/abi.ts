@@ -45,4 +45,5 @@ export const STAKING_ABI = [
   
   'function depositEth() external',
   'function redeemEth(uint256 shares, address receiver) external',
+  'function transfer(address to, uint256 amount) external returns (bool)',
 ]

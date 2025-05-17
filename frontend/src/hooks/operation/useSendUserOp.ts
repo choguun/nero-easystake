@@ -317,15 +317,6 @@ export const useSendUserOp = () => {
         // Get the current operation from the builder
         const builderOp = (userOpForExecution as any).currOp;
         
-        // Update the builder's current operation with our gas prices
-        builderOp.maxFeePerGas = '0x493e0';
-        builderOp.maxPriorityFeePerGas = '0x7A120';
-
-        // Set the gas limits to the specified hex values
-        builderOp.callGasLimit = '0x493e0';
-        builderOp.verificationGasLimit = '0x7A120';
-        builderOp.preVerificationGas = '0x5208';
-
         // Log the final operation details
         console.log('[useSendUserOp] sendUserOp: Final operation details:', {
             maxFeePerGas: builderOp.maxFeePerGas,
