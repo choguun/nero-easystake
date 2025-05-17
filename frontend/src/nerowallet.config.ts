@@ -1,9 +1,10 @@
 import NEROLogoSquareIcon from '@/assets/NERO-Logo-square.svg'
+import { CHAIN_NAMESPACES, IAdapter, IProvider, WEB3AUTH_NETWORK, getEvmChainConfig } from "@web3auth/base";
 
 const config = {
     rainbowKitProjectId: '04309ed1007e77d1f119b85205bb779d',
-    walletName: 'NERO wallet',
-    walletLogo: NEROLogoSquareIcon,
+    walletName: 'Social Login',
+    // walletLogo: NEROLogoSquareIcon,
     iconBackground: '#fff',
     contactAs: 'https://discord.com/invite/nerochainofficial',
     PrivacyPolicy: 'https://www.app.testnet.nerochain.io/privacy',
@@ -12,8 +13,8 @@ const config = {
       {
         chain: {
           name: 'NERO Testnet',
-          logo: NEROLogoSquareIcon,
-          networkType: 'testnet',
+          // logo: NEROLogoSquareIcon,
+          networkType: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET,
           rpc: 'https://rpc-testnet.nerochain.io',
           chainId: 689,
           explorer: 'https://testnet.neroscan.io',
@@ -35,8 +36,8 @@ const config = {
           tokenPaymaster: '0x5a6680dFd4a77FEea0A7be291147768EaA2414ad',
         },
         web3auth: {
-          clientId: process.env.NEXT_PUBLIC_ESTNET_WEB3AUTH_ID ?? '',
-          network: 'testnet',
+          clientId: process.env.NEXT_PUBLIC_TESTNET_WEB3AUTH_ID ?? '',
+          network: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET,
           uiConfig: {
             appName: 'NERO',
             mode: 'light',
@@ -45,31 +46,31 @@ const config = {
             theme: {
               primary: '#768729',
             },
-            loginMethodsOrder: ['google', 'facebook', 'discord'],
+            loginMethodsOrder: ['google'],
             uxMode: 'redirect',
             modalZIndex: '2147483647',
           },
           loginConfig: {
             google: {
               name: 'google',
-              verifier: 'NeroTest-Google-Maintest',
+              verifier: 'Nero-EasyStake-Google-Maintest',
               typeOfLogin: 'google',
               clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
             },
-            facebook: {
-              name: 'facebook',
-              verifier: 'NeroTest-Facebook-Maintest',
-              typeOfLogin: 'facebook',
-              clientId: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
-            },
+            // facebook: {
+            //   name: 'facebook',
+            //   verifier: 'NeroTest-Facebook-Maintest',
+            //   typeOfLogin: 'facebook',
+            //   clientId: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
+            // },
           },
         },
       },
       {
         chain: {
           name: 'NERO Mainnet',
-          logo: NEROLogoSquareIcon,
-          networkType: 'mainnet',
+          // logo: NEROLogoSquareIcon,
+          networkType: WEB3AUTH_NETWORK.SAPPHIRE_MAINNET,
           rpc: 'https://rpc.nerochain.io',
           chainId: 1689,
           explorer: 'https://neroscan.io',
@@ -101,23 +102,23 @@ const config = {
             theme: {
               primary: '#768729',
             },
-            loginMethodsOrder: ['google', 'facebook', 'discord'],
+            loginMethodsOrder: ['google'],
             uxMode: 'redirect',
             modalZIndex: '2147483647',
           },
           loginConfig: {
             google: {
               name: 'google',
-              verifier: 'NeroTest-Google-Maintest',
+              verifier: 'Nero-EasyStake-Google-Maintest',
               typeOfLogin: 'google',
               clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
             },
-            facebook: {
-              name: 'facebook',
-              verifier: 'NeroTest-Facebook-Maintest',
-              typeOfLogin: 'facebook',
-              clientId: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
-            },
+            // facebook: {
+            //   name: 'facebook',
+            //   verifier: 'NeroTest-Facebook-Maintest',
+            //   typeOfLogin: 'facebook',
+            //   clientId: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
+            // },
           },
         },
       },
