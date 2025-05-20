@@ -19,12 +19,12 @@ const PaymasterPanel: React.FC = () => {
     sponsorshipInfo,
     selectedToken,
     selectedPaymasterType,
+    handlePaymasterTypeChange,
     isSponsoredSelected,
     scrollContainerRef,
     fetchTokens,
     handleRetry,
     handleTokenClick,
-    handlePaymasterTypeChange,
     scrollLeft,
     scrollRight,
     handleSelectPaymentType,
@@ -92,7 +92,7 @@ const PaymasterPanel: React.FC = () => {
             <PaymentOption
               isDisabled={!supportedTokens || supportedTokens.length === 0}
               onClick={() =>
-                supportedTokens && supportedTokens.length > 0 && handleSelectPaymentType('token', selectedPaymasterType ?? PAYMASTER_MODE.PRE_FUND)
+                supportedTokens && supportedTokens.length > 0 && handleSelectPaymentType('token')
               }
               icon={
                 <TokenIcon
