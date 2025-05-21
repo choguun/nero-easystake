@@ -6,8 +6,8 @@ import {EasyStakeVault} from "../src/EasyStakeVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol"; // For WNERO type
 
 contract DeployEasyStakeVault is Script {
-    string public constant VAULT_NAME = "Vaulted Wrapped NERO";
-    string public constant VAULT_SYMBOL = "vWNERO";
+    string public constant VAULT_NAME = "Staked NERO";
+    string public constant VAULT_SYMBOL = "stNERO";
 
     function run() external returns (EasyStakeVault) {
         // Load environment variables

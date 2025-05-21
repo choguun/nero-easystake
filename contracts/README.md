@@ -48,7 +48,21 @@ $ anvil
 ### Deploy
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/DeployEasyStakeVault.s.sol:DeployEasyStakeVault \
+  --rpc-url https://rpc-testnet.nerochain.io/ \
+  --broadcast \
+  -- --max-priority-fee-per-gas 1000000000 \
+  --max-fee-per-gas 2000000000 \
+  -vvvv
+```
+
+```shell
+forge script script/DeployUniswap.s.sol:DeployUniswap \
+  --rpc-url https://rpc-testnet.nerochain.io/ \
+  --broadcast \
+  -- --max-priority-fee-per-gas 10000000000 \
+  --max-fee-per-gas 20000000000 \
+  -vvvv
 ```
 
 ### Cast
