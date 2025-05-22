@@ -51,17 +51,33 @@ $ anvil
 $ forge script script/DeployEasyStakeVault.s.sol:DeployEasyStakeVault \
   --rpc-url https://rpc-testnet.nerochain.io/ \
   --broadcast \
-  -- --max-priority-fee-per-gas 1000000000 \
-  --max-fee-per-gas 2000000000 \
+  --priority-gas-price 5gwei \
+  --with-gas-price    5gwei \
   -vvvv
 ```
 
 ```shell
-forge script script/DeployUniswap.s.sol:DeployUniswap \
-  --rpc-url https://rpc-testnet.nerochain.io/ \
+ forge script script/DeploySwap.s.sol:DeploySwap --sig "run(address)" 0xB4f8075aC4be8135b4B746813b5f5fE2cFf842DD \
+  --rpc-url        https://rpc-testnet.nerochain.io/ \
   --broadcast \
-  -- --max-priority-fee-per-gas 10000000000 \
-  --max-fee-per-gas 20000000000 \
+  --priority-gas-price 5gwei \
+  --with-gas-price    5gwei \
+  -vvvv
+```
+
+```shell
+  forge script script/DepositEthToVault.s.sol:DepositEthToVault \
+  --rpc-url https://rpc-testnet.nerochain.io \
+  --broadcast \
+  --priority-gas-price 5gwei \
+  --with-gas-price    5gwei \
+  -vvvv
+
+  forge script script/AddLiquidity.s.sol:AddLiquidity \
+  --rpc-url https://rpc-testnet.nerochain.io \
+  --broadcast \
+  --priority-gas-price 5gwei \
+  --with-gas-price    5gwei \
   -vvvv
 ```
 
