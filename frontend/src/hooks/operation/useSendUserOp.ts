@@ -98,15 +98,22 @@ export const useSendUserOp = () => {
         return '0'
       }
 
-      const operations: OperationData[] = userOperations.map((op) => ({
-        contractAddress: op.contractAddress,
+      // Map to the OperationData type expected by estimateUserOpFee (likely from hooks.ts)
+      const operationsForEstimate: { 
+        contractAddress: string; 
+        abi: any; 
+        function: string; 
+        params: any[]; 
+        value: ethers.BigNumberish; 
+      }[] = userOperations.map((op) => ({
+        contractAddress: op.target, // Map target to contractAddress
         abi: op.abi,
-        function: op.function,
+        function: op.functionName, // Map functionName to function
         params: op.params,
         value: op.value || ethers.constants.Zero,
       }))
 
-      return estimateUserOpFee(operations, usePaymaster, paymasterTokenAddress, type)
+      return estimateUserOpFee(operationsForEstimate, usePaymaster, paymasterTokenAddress, type)
     },
     [estimateUserOpFee, userOperations],
   )
@@ -267,8 +274,12 @@ export const useSendUserOp = () => {
 
         if (userOperations.length === 1) {
           const userOperation = userOperations[0]
+          // Helper function to convert BigInt to string for JSON.stringify
+          const replacer = (key: any, value: any) => (typeof value === 'bigint' ? value.toString() : value);
+          console.log('[useSendUserOp] sendUserOp: Inspecting userOperation for single op:', JSON.stringify(userOperation, replacer));
+          console.log('[useSendUserOp] sendUserOp: Target address for single op:', userOperation.target);
           const contract = new ethers.Contract(
-            userOperation.contractAddress,
+            userOperation.target,
             userOperation.abi,
             signer,
           )
@@ -276,17 +287,21 @@ export const useSendUserOp = () => {
             to: contract.address,
             value: userOperation.value || ethers.constants.Zero,
             data: contract.interface.encodeFunctionData(
-              userOperation.function,
+              userOperation.functionName,
               userOperation.params,
             ),
           })
         } else if (userOperations.length > 1) {
+          // Helper function to convert BigInt to string for JSON.stringify
+          const replacer = (key: any, value: any) => (typeof value === 'bigint' ? value.toString() : value);
           userOperations.forEach((operation) => {
-            const contract = new ethers.Contract(operation.contractAddress, operation.abi, signer)
+            console.log('[useSendUserOp] sendUserOp: Inspecting operation for batch op:', JSON.stringify(operation, replacer));
+            console.log('[useSendUserOp] sendUserOp: Target address for batch op:', operation.target);
+            const contract = new ethers.Contract(operation.target, operation.abi, signer)
             operations.push({
               to: contract.address,
               value: operation.value || ethers.constants.Zero,
-              data: contract.interface.encodeFunctionData(operation.function, operation.params),
+              data: contract.interface.encodeFunctionData(operation.functionName, operation.params),
             })
           })
         }

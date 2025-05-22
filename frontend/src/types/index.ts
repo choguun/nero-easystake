@@ -16,9 +16,9 @@ export * from './hooks'
 import { ReactNode } from 'react';
 
 export interface UserOperation {
-  contractAddress: string
+  target: string
   abi: any // Consider using a more specific ABI type if available (e.g., ethers.ContractInterface)
-  function: string
+  functionName: string
   params: any[]
   value?: any // Typically string for ETH value, or BigNumberish
 }

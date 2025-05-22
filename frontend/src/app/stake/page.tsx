@@ -11,7 +11,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const TESTNET_RPC_URL = 'https://rpc-testnet.nerochain.io';
 
-const EASYSTAKE_VAULT_ADDRESS = '0x577937D20415183c7C50F5773A0C02D5B8aa344c';
+const EASYSTAKE_VAULT_ADDRESS = '0x163EBB40a546Fd33d18dCeC56c0650fF7fECA1c7';
 const EasyStakeVaultABI = STAKING_ABI;
 const VAULT_DECIMALS = 18;
 
@@ -251,8 +251,8 @@ const StakePage = () => {
       const amountToStake = ethersUtils.parseEther(stakeAmount)
       console.log('[StakePage] Stake: Calling execute with amount:', stakeAmount);
       finalStakeResult = await execute({
-        function: 'depositEth',
-        contractAddress: EASYSTAKE_VAULT_ADDRESS,
+        functionName: 'depositEth',
+        target: EASYSTAKE_VAULT_ADDRESS,
         abi: EasyStakeVaultABI,
         value: amountToStake,
         params: [],
@@ -306,8 +306,8 @@ const StakePage = () => {
       const sharesToRedeem = ethersUtils.parseUnits(redeemAmount, VAULT_DECIMALS)
       console.log('[StakePage] Redeem: Calling execute with shares:', redeemAmount);
       finalResult = await execute({
-        function: 'redeemEth',
-        contractAddress: EASYSTAKE_VAULT_ADDRESS,
+        functionName: 'redeemEth',
+        target: EASYSTAKE_VAULT_ADDRESS,
         abi: EasyStakeVaultABI,
         value: '0',
         params: [sharesToRedeem, AAaddress],
@@ -352,8 +352,8 @@ const StakePage = () => {
     try {
       const amountToSend = ethers.utils.parseUnits(sendAmount, VAULT_DECIMALS);
       const result = await execute({
-        function: 'transfer',
-        contractAddress: EASYSTAKE_VAULT_ADDRESS,
+        functionName: 'transfer',
+        target: EASYSTAKE_VAULT_ADDRESS,
         abi: EasyStakeVaultABI,
         value: '0',
         params: [sendToAddress, amountToSend],

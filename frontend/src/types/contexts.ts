@@ -14,6 +14,8 @@ import {
   Screen,
   Token,
   WalletConfig,
+  UserOperation,
+  UserOperationResultInterface,
 } from '@/types'
 
 export interface ProviderProps {
@@ -186,21 +188,6 @@ export interface PaymasterContextType {
   clearToken: () => void
   isPaymentSelected: boolean
   setIsPaymentSelected: (selected: boolean) => void
-}
-
-export interface UserOperation {
-  function: string
-  contractAddress: string
-  abi: ContractInterface
-  value?: BigNumberish
-  params: any[]
-}
-
-export interface UserOperationResultInterface {
-  userOpHash: string
-  result: boolean | null
-  transactionHash: string
-  error?: string
 }
 
 export interface SendUserOpContextProps {

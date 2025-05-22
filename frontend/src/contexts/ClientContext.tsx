@@ -9,7 +9,7 @@ export const ClientContext = createContext<Client | null>(null)
 
 export const ClientProvider: React.FC<ProviderProps> = ({ children }) => {
   const [client, setClient] = useState<Client | null>(null)
-  const { rpcUrl, bundlerUrl, entryPoint } = useConfig()
+  const { rpcUrl, bundlerUrl, entryPoint, paymasterUrl } = useConfig()
 
   useEffect(() => {
     const initClient = async () => {
@@ -17,6 +17,7 @@ export const ClientProvider: React.FC<ProviderProps> = ({ children }) => {
         const clientInstance = await Client.init(rpcUrl, {
           entryPoint,
           overrideBundlerRpc: bundlerUrl,
+          paymasterUrl: paymasterUrl,
         })
         setClient(clientInstance)
       } catch (error) {
@@ -24,7 +25,7 @@ export const ClientProvider: React.FC<ProviderProps> = ({ children }) => {
       }
     }
     initClient()
-  }, [entryPoint, rpcUrl, bundlerUrl])
+  }, [entryPoint, rpcUrl, bundlerUrl, paymasterUrl])
 
   return <ClientContext.Provider value={client}>{children}</ClientContext.Provider>
 }
