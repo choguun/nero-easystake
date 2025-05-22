@@ -26,6 +26,7 @@ import {
   UNISWAP_V2_ROUTER_ABI,
   ERC20_ABI,
   WETH_ABI,
+  UNISWAP_V2_PAIR_ABI,
 } from '@/constants/abi';
 import {
   NERO_ADDRESS, // Assuming NERO is native, WNERO will be used for ERC20 operations
@@ -75,6 +76,13 @@ export default function LiquidityPage() {
   const [tokenBInfo, setTokenBInfo] = useState<TokenInfo | null>(null); // stNERO
   const [lpTokenInfo, setLpTokenInfo] = useState<TokenInfo | null>(null);
 
+  // Pool State for Add Liquidity
+  const [pairToken0Address, setPairToken0Address] = useState<string | null>(null);
+  const [poolReserveA, setPoolReserveA] = useState<BigNumber>(BigNumber.from(0)); // Corresponds to tokenAInfo
+  const [poolReserveB, setPoolReserveB] = useState<BigNumber>(BigNumber.from(0)); // Corresponds to tokenBInfo
+  const [poolLpTotalSupply, setPoolLpTotalSupply] = useState<BigNumber>(BigNumber.from(0));
+  const [isCalculating, setIsCalculating] = useState(false); // To prevent recursive updates
+
   // Add Liquidity State
   const [addAmountA, setAddAmountA] = useState<string>('');
   const [addAmountB, setAddAmountB] = useState<string>('');
@@ -97,10 +105,12 @@ export default function LiquidityPage() {
 
   const fetchTokenMetadataAndBalance = useCallback(async (tokenAddress: string, isNative?: boolean): Promise<TokenInfo | null> => {
     if (!provider || !AAaddress) return null;
+    console.log(`[LiquidityPage] fetchTokenMetadataAndBalance called for ${tokenAddress}${isNative ? " (Native)" : ""}. AAaddress: ${AAaddress}, Provider exists: ${!!provider}`);
     try {
       if (isNative) {
+        console.log(`[LiquidityPage] Fetching native balance for ${AAaddress}`);
         const balance = await provider.getBalance(AAaddress);
-        return {
+        const tokenInfo = {
           address: NERO_ADDRESS, // Special address for native NERO
           name: 'Nero', // Native token name
           symbol: 'NERO', // Native token symbol
@@ -108,15 +118,19 @@ export default function LiquidityPage() {
           balance: ethersUtils.formatEther(balance),
           logoURI: '/logo.png', // Placeholder
         };
+        console.log(`[LiquidityPage] Fetched native token info for ${tokenAddress}:`, tokenInfo);
+        return tokenInfo;
       }
+      console.log(`[LiquidityPage] Creating contract instance for ERC20 token: ${tokenAddress}`);
       const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+      console.log(`[LiquidityPage] Fetching name, symbol, decimals, balance for ${tokenAddress} for account ${AAaddress}`);
       const [name, symbol, decimals, balance] = await Promise.all([
         contract.name(),
         contract.symbol(),
         contract.decimals(),
         contract.balanceOf(AAaddress),
       ]);
-      return {
+      const tokenInfo = {
         address: tokenAddress,
         name,
         symbol,
@@ -124,48 +138,161 @@ export default function LiquidityPage() {
         balance: ethersUtils.formatUnits(balance, decimals),
         logoURI: '' // Fetch or use a default/placeholder
       };
+      console.log(`[LiquidityPage] Fetched ERC20 token info for ${tokenAddress}:`, tokenInfo);
+      return tokenInfo;
     } catch (error) {
-      console.error(`Error fetching data for ${tokenAddress}:`, error);
+      console.error(`[LiquidityPage] Error in fetchTokenMetadataAndBalance for ${tokenAddress}:`, error);
       toast({ title: 'Data Fetch Error', description: `Could not load details for token ${tokenAddress}`, variant: 'destructive' });
       return null;
     }
   }, [provider, AAaddress, toast]);
 
     const fetchAllowance = useCallback(async (tokenAddress: string, owner: string, spender: string, decimals: number): Promise<string> => {
-        if (!provider) return '0';
-        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
-        const allowance = await contract.allowance(owner, spender);
-        return ethersUtils.formatUnits(allowance, decimals);
-    }, [provider]);
+        if (!provider) {
+            console.log(`[LiquidityPage] fetchAllowance: Provider not available for ${tokenAddress}.`);
+            return '0';
+        }
+        console.log(`[LiquidityPage] fetchAllowance called for token: ${tokenAddress}, owner: ${owner}, spender: ${spender}, decimals: ${decimals}`);
+        try {
+            const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+            console.log(`[LiquidityPage] Fetching allowance for ${tokenAddress} from ${owner} to ${spender}`);
+            const allowance = await contract.allowance(owner, spender);
+            const formattedAllowance = ethersUtils.formatUnits(allowance, decimals);
+            console.log(`[LiquidityPage] Fetched allowance for ${tokenAddress}: ${formattedAllowance}`);
+            return formattedAllowance;
+        } catch (error) {
+            console.error(`[LiquidityPage] Error in fetchAllowance for ${tokenAddress}:`, error);
+            toast({ title: 'Allowance Fetch Error', description: `Could not load allowance for ${tokenAddress}`, variant: 'destructive' });
+            return '0';
+        }
+    }, [provider, toast]);
 
   // --- Initial Data Fetching ---
   useEffect(() => {
+    console.log('[LiquidityPage] useEffect triggered. Dependencies:', { isConnected, AAaddress, providerExists: !!provider });
     const init = async () => {
+      console.log('[LiquidityPage] init() called.');
       if (isConnected && AAaddress && provider) {
         setIsLoading(true);
-        console.log('[LiquidityPage] Fetching initial token data...');
-        const wneroData = await fetchTokenMetadataAndBalance(WNERO_ADDRESS);
-        const stneroData = await fetchTokenMetadataAndBalance(STNERO_ADDRESS);
-        // Use the imported actual pair address
-        const lpData = await fetchTokenMetadataAndBalance(WNERO_STNERO_PAIR_ADDRESS);
+        console.log('[LiquidityPage] Starting initial token data fetching process...');
+        
+        const wneroDataPromise = fetchTokenMetadataAndBalance(WNERO_ADDRESS);
+        const stneroDataPromise = fetchTokenMetadataAndBalance(STNERO_ADDRESS);
+        const lpDataPromise = fetchTokenMetadataAndBalance(WNERO_STNERO_PAIR_ADDRESS);
+        
+        console.log('[LiquidityPage] Awaiting all token metadata and balance promises...');
+        const [wneroData, stneroData, lpData] = await Promise.all([wneroDataPromise, stneroDataPromise, lpDataPromise]);
+        console.log('[LiquidityPage] All token metadata and balance promises resolved:', { wneroData, stneroData, lpData });
 
         if (wneroData) {
+            console.log('[LiquidityPage] WNERO data received, fetching allowance...');
             wneroData.allowance = await fetchAllowance(WNERO_ADDRESS, AAaddress, UNISWAP_ROUTER_ADDRESS, wneroData.decimals);
             setTokenAInfo(wneroData);
+            console.log('[LiquidityPage] WNERO data and allowance set to state:', wneroData);
+        } else {
+            console.warn('[LiquidityPage] No WNERO data received from fetchTokenMetadataAndBalance.');
+            setTokenAInfo(null); // Explicitly set to null if no data
         }
         if (stneroData) {
+            console.log('[LiquidityPage] STNERO data received, fetching allowance...');
             stneroData.allowance = await fetchAllowance(STNERO_ADDRESS, AAaddress, UNISWAP_ROUTER_ADDRESS, stneroData.decimals);
             setTokenBInfo(stneroData);
+            console.log('[LiquidityPage] STNERO data and allowance set to state:', stneroData);
+        } else {
+            console.warn('[LiquidityPage] No STNERO data received from fetchTokenMetadataAndBalance.');
+            setTokenBInfo(null); // Explicitly set to null
         }
+
         if (lpData) {
+            console.log('[LiquidityPage] LP token data received, fetching allowance...');
             lpData.allowance = await fetchAllowance(WNERO_STNERO_PAIR_ADDRESS, AAaddress, UNISWAP_ROUTER_ADDRESS, lpData.decimals);
             setLpTokenInfo(lpData);
+            console.log('[LiquidityPage] LP token data and allowance set to state:', lpData);
+            
+            if (provider) {
+                console.log('[LiquidityPage] Provider exists, fetching LP token total supply for pair:', WNERO_STNERO_PAIR_ADDRESS);
+                try {
+                    const lpContract = new ethers.Contract(WNERO_STNERO_PAIR_ADDRESS, UNISWAP_V2_PAIR_ABI, provider);
+                    const totalSupply = await lpContract.totalSupply();
+                    setPoolLpTotalSupply(totalSupply);
+                    console.log('[LiquidityPage] LP Token Total Supply fetched successfully:', totalSupply.toString());
+                } catch (error) {
+                    console.error("[LiquidityPage] Error fetching LP token total supply:", error);
+                    toast({ title: 'LP Data Error', description: 'Could not load LP token total supply.', variant: 'destructive' });
+                    setPoolLpTotalSupply(BigNumber.from(0));
+                }
+            } else {
+                 console.warn('[LiquidityPage] Provider not available for fetching LP total supply when LP data was present.');
+            }
+        } else {
+            console.warn('[LiquidityPage] No LP token data received. Resetting LP total supply and info.');
+            setLpTokenInfo(null); // Explicitly set to null
+            setPoolLpTotalSupply(BigNumber.from(0));
+        }
+
+        // Fetch pair reserves
+        console.log('[LiquidityPage] Checking conditions for fetching pair reserves:', {
+            pairAddress: WNERO_STNERO_PAIR_ADDRESS,
+            hasProvider: !!provider,
+            hasWneroData: !!wneroData, // Log the actual data for check
+            hasStneroData: !!stneroData, // Log the actual data for check
+        });
+        if (WNERO_STNERO_PAIR_ADDRESS && provider && wneroData && stneroData) { // Ensure wneroData & stneroData are truthy
+          try {
+            console.log('[LiquidityPage] Conditions met. Attempting to fetch reserves from pair:', WNERO_STNERO_PAIR_ADDRESS);
+            const pairContract = new ethers.Contract(WNERO_STNERO_PAIR_ADDRESS, UNISWAP_V2_PAIR_ABI, provider);
+            const rawReserves = await pairContract.getReserves();
+            console.log('[LiquidityPage] Raw reserves fetched:', { reserve0: rawReserves[0].toString(), reserve1: rawReserves[1].toString() }); // Access by index
+            const t0Address = await pairContract.token0();
+            console.log('[LiquidityPage] Pair token0 fetched:', t0Address);
+            setPairToken0Address(t0Address);
+            
+            let finalReserveA = BigNumber.from(0);
+            let finalReserveB = BigNumber.from(0);
+
+            if (t0Address.toLowerCase() === WNERO_ADDRESS.toLowerCase()) {
+              finalReserveA = rawReserves[0]; // reserve0
+              finalReserveB = rawReserves[1]; // reserve1
+              console.log('[LiquidityPage] Pool Reserves ALIGNED (WNERO/Token0, STNERO/Token1):', finalReserveA.toString(), finalReserveB.toString());
+            } else if (t0Address.toLowerCase() === STNERO_ADDRESS.toLowerCase()) {
+              finalReserveA = rawReserves[1]; // WNERO is token1 in pair
+              finalReserveB = rawReserves[0]; // STNERO is token0 in pair
+              console.log('[LiquidityPage] Pool Reserves ALIGNED (STNERO/Token0, WNERO/Token1):', finalReserveA.toString(), finalReserveB.toString());
+            } else {
+                const t1Address = await pairContract.token1();
+                console.warn("[LiquidityPage] Pair tokens don't match WNERO/STNERO. WNERO:", WNERO_ADDRESS, "STNERO:", STNERO_ADDRESS, "Pair t0:", t0Address, "Pair t1:", t1Address );
+            }
+            setPoolReserveA(finalReserveA);
+            setPoolReserveB(finalReserveB);
+            console.log('[LiquidityPage] Pair reserves set to state.');
+          } catch (error) {
+            console.error("[LiquidityPage] Error fetching pair reserves:", error);
+            toast({ title: 'Pool Data Error', description: 'Could not load pool reserves.', variant: 'destructive' });
+            setPoolReserveA(BigNumber.from(0));
+            setPoolReserveB(BigNumber.from(0));
+          }
+        } else {
+            console.warn('[LiquidityPage] SKIPPED reserve fetching due to unmet conditions (missing provider, pair address, or token data). Resetting reserves.');
+            setPoolReserveA(BigNumber.from(0));
+            setPoolReserveB(BigNumber.from(0));
         }
         setIsLoading(false);
+        console.log('[LiquidityPage] Initial data fetching process complete. isLoading set to false.');
+      } else {
+        console.warn('[LiquidityPage] Conditions not met for initial data fetch in useEffect:', { isConnected, AAaddress, providerExists: !!provider });
+        // Potentially set isLoading to false here if it was true and conditions aren't met,
+        // to prevent indefinite loading state if dependencies change and conditions are still not met.
+        if (isLoading) setIsLoading(false);
       }
     };
-    init();
-  }, [isConnected, AAaddress, provider, fetchTokenMetadataAndBalance, fetchAllowance]);
+
+    init().catch(err => {
+        console.error("[LiquidityPage] Unhandled error in init function promise chain:", err);
+        setIsLoading(false); // Ensure loading is stopped on error
+        toast({ title: 'Initialization Error', description: 'An unexpected error occurred while initializing the page.', variant: 'destructive' });
+    });
+    console.log('[LiquidityPage] useEffect execution finished.');
+  }, [isConnected, AAaddress, provider, fetchTokenMetadataAndBalance, fetchAllowance, toast]); // REMOVED isLoading from dependency array
 
 
   // --- Add Liquidity Logic ---
@@ -225,9 +352,11 @@ export default function LiquidityPage() {
         return;
     }
     
-    // TODO: Add slippage calculation for min amounts
-    const amountAMin = amountADesired.mul(995).div(1000); // 99.5% slippage, example
-    const amountBMin = amountBDesired.mul(995).div(1000); // 99.5% slippage, example
+    const slippageMultiplier = BigNumber.from(Math.floor((1 - DEFAULT_SLIPPAGE_TOLERANCE / 100) * 10000)); // e.g., 0.5% slippage -> 9950
+    const slippageDivisor = BigNumber.from(10000);
+
+    const amountAMin = amountADesired.mul(slippageMultiplier).div(slippageDivisor);
+    const amountBMin = amountBDesired.mul(slippageMultiplier).div(slippageDivisor);
 
     // For this example, assuming TokenA is WNERO and TokenB is stNERO
     // If one token was NERO (native), we'd use addLiquidityETH
@@ -266,22 +395,239 @@ export default function LiquidityPage() {
   };
 
   // --- Remove Liquidity Logic ---
+  const handleApproveLpTokens = useCallback(async (lpAmountToRemove: BigNumber) => {
+    if (!lpTokenInfo || !UNISWAP_ROUTER_ADDRESS) {
+      toast({ title: 'Missing Info', description: 'LP token information or router address is not available.', variant: 'default' });
+      return false;
+    }
+    if (lpAmountToRemove.isZero()) {
+        toast({ title: 'Invalid Amount', description: 'LP amount to approve cannot be zero.', variant: 'default' });
+        return false;
+    }
+
+    setIsProcessing(true);
+    setTxStatusMessage(`Approving ${lpTokenInfo.symbol} for removal...`);
+    setUserOpHash(null);
+
+    try {
+      const result = await execute({
+        target: lpTokenInfo.address,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        params: [UNISWAP_ROUTER_ADDRESS, lpAmountToRemove], // Approve the exact amount to remove for now
+        value: '0',
+      });
+
+      if (result.userOpHash && !result.error) {
+        setUserOpHash(result.userOpHash);
+        setTxStatusMessage(`Approval submitted for ${lpTokenInfo.symbol}. Waiting for confirmation...`);
+        // Consider polling for tx confirmation and then updating allowance state.
+        // For now, we assume the user will wait or we might proceed optimistically if tx is fast.
+        // Ideally, poll and only proceed to removeLiquidity after approval confirmed.
+        toast({ title: 'Approval Sent', description: `User operation ${result.userOpHash} submitted.`});
+        return true; // Indicate approval was sent
+      } else {
+        throw new Error(result.error || 'LP Token approval failed to submit.');
+      }
+    } catch (error: any) {
+      console.error("[LiquidityPage] LP Approval Error:", error);
+      toast({ title: 'LP Approval Error', description: error.message || 'Could not submit LP approval.', variant: 'destructive' });
+      setIsProcessing(false);
+      return false;
+    }
+    // Note: setIsProcessing(false) should be handled after polling or in a finally block if awaiting confirmation here.
+    // For now, it's reset on error or if the calling function handles success.
+  }, [execute, toast, lpTokenInfo, AAaddress, fetchAllowance]);
+
+
   const handleRemoveLiquidity = async () => {
-    // TODO: Implement approval for LP tokens if needed
-    // TODO: Implement removeLiquidity / removeLiquidityETH call
-    toast({ title: 'Not Implemented', description: 'Remove liquidity functionality is coming soon.'});
+    if (!isConnected || !AAaddress || !tokenAInfo || !tokenBInfo || !lpTokenInfo || !provider) {
+      toast({ title: 'Prerequisites Missing', description: 'Please connect your wallet and ensure all token data is loaded.', variant: 'default' });
+      return;
+    }
+
+    setIsProcessing(true);
+    setTxStatusMessage('Preparing to remove liquidity...');
+    setUserOpHash(null);
+
+    try {
+      const lpDecimals = lpTokenInfo.decimals;
+      const calculatedLpAmountToRemove = parseUnitsSafe(removeLpAmount, lpDecimals);
+
+      if (!calculatedLpAmountToRemove || calculatedLpAmountToRemove.isZero() || poolLpTotalSupply.isZero()) {
+        toast({ 
+            title: 'Invalid Input', 
+            description: poolLpTotalSupply.isZero() 
+                ? 'Cannot calculate token amounts: LP total supply is zero (pool might be empty or data missing).' 
+                : 'Please enter a valid amount of LP tokens to remove.', 
+            variant: 'destructive' 
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      const currentLpAllowance = parseUnitsSafe(lpTokenInfo.allowance || '0', lpDecimals);
+      if (currentLpAllowance.lt(calculatedLpAmountToRemove)) {
+        toast({ title: 'Approval Required', description: `You need to approve ${lpTokenInfo.symbol} for removal.`, variant: 'default' });
+        const approvalSent = await handleApproveLpTokens(calculatedLpAmountToRemove);
+        if (!approvalSent) { // If approval wasn't even submitted (e.g. user rejected, or immediate error)
+          setIsProcessing(false); // Stop processing
+          return;
+        }
+        // If approval was sent, we might want to wait here, or let the user click "Remove" again
+        // For a simpler flow now, we'll ask them to try again after approval confirms.
+        setTxStatusMessage('LP Token approval submitted. Please wait for confirmation and try removing again.');
+        // We don't set setIsProcessing(false) here if we expect user to click again after approval.
+        // Or, ideally, disable button and poll for approval. For now, simple message.
+        // To make it more robust, this should poll for allowance update.
+        // For now, let's allow proceeding, but it might fail if approval is not mined.
+        // A better UX would be to disable the remove button until allowance is confirmed.
+        // For now, let's just re-fetch allowance after attempting approval.
+        // This is still not ideal as the next step might be too quick.
+        // A robust solution would involve waiting for the approval transaction.
+
+        // We will proceed for now, assuming approval will be fast or already done
+        // A better approach is to wait for the approval receipt.
+        // For now, let's assume the approval was for MaxUint256 or sufficient.
+        // Re-fetching after sending approval op
+        const newAllowance = await fetchAllowance(lpTokenInfo.address, AAaddress, UNISWAP_ROUTER_ADDRESS, lpTokenInfo.decimals);
+        setLpTokenInfo(prev => prev ? {...prev, allowance: newAllowance} : null);
+        if (parseUnitsSafe(newAllowance, lpTokenInfo.decimals).lt(calculatedLpAmountToRemove)) {
+            toast({ title: 'Approval Processing', description: 'Approval still pending or insufficient. Please wait and try again.', variant: 'default' });
+            setIsProcessing(false);
+            return;
+        }
+      }
+
+      // Using WNERO (tokenA) and STNERO (tokenB)
+      // We want to remove liquidity to get NERO (native) and STNERO (tokenB)
+      // So, stNERO is the 'token' for removeLiquidityETH
+      const tokenForRouter = tokenBInfo.address; // STNERO
+      const liquidityToRemove = calculatedLpAmountToRemove;
+
+      // Calculate expected amounts before slippage
+      const expectedAmountA = liquidityToRemove.mul(poolReserveA).div(poolLpTotalSupply);
+      const expectedAmountB = liquidityToRemove.mul(poolReserveB).div(poolLpTotalSupply);
+
+      const slippageMultiplier = BigNumber.from(Math.floor((1 - DEFAULT_SLIPPAGE_TOLERANCE / 100) * 10000)); // e.g., 0.5% slippage -> 9950
+      const slippageDivisor = BigNumber.from(10000);
+
+      // amountETHMin is for WNERO (tokenA), amountTokenMin is for STNERO (tokenB)
+      const amountETHMin = expectedAmountA.mul(slippageMultiplier).div(slippageDivisor);
+      const amountTokenMin = expectedAmountB.mul(slippageMultiplier).div(slippageDivisor);
+
+      console.log('[RemoveLiquidity] Calculated Min Amounts:', {
+        expectedWNERO: formatUnitsSafe(expectedAmountA, tokenAInfo.decimals),
+        minWNERO_ETH: formatUnitsSafe(amountETHMin, tokenAInfo.decimals),
+        expectedSTNERO: formatUnitsSafe(expectedAmountB, tokenBInfo.decimals),
+        minSTNERO: formatUnitsSafe(amountTokenMin, tokenBInfo.decimals),
+        slippageTolerance: `${DEFAULT_SLIPPAGE_TOLERANCE}%`,
+      });
+
+      const deadline = getDeadline();
+      const toAddress = AAaddress;
+
+      setTxStatusMessage('Submitting remove liquidity transaction...');
+
+      const result = await execute({
+        target: UNISWAP_ROUTER_ADDRESS,
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: 'removeLiquidityETH',
+        params: [
+          tokenForRouter,
+          liquidityToRemove,
+          amountTokenMin,
+          amountETHMin,
+          toAddress,
+          deadline,
+        ],
+        value: '0', // No value sent to the router for removeLiquidityETH itself
+      });
+
+      if (result.userOpHash && !result.error) {
+        setUserOpHash(result.userOpHash);
+        setTxStatusMessage(`Remove liquidity submitted: ${result.userOpHash}. Waiting for confirmation...`);
+        toast({ title: 'Transaction Sent', description: `User operation ${result.userOpHash} submitted.`});
+        // TODO: Poll for status, then update balances of NERO, STNERO, and LP tokens.
+      } else {
+        throw new Error(result.error || 'Remove liquidity failed to submit.');
+      }
+    } catch (error: any) {
+      console.error("[LiquidityPage] Remove Liquidity Error:", error);
+      toast({ title: 'Remove Liquidity Error', description: error.message || 'Could not submit remove liquidity transaction.', variant: 'destructive' });
+    } finally {
+      // setIsProcessing(false); // Should be set after polling/confirmation
+    }
   };
 
   // --- UI Event Handlers ---
   const handleAddAmountAChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*\.?\d*$/.test(value)) setAddAmountA(value);
-    // TODO: Add logic to estimate amountB if a pair exists and rates are known
+    if (/^\d*\.?\d*$/.test(value)) {
+        setAddAmountA(value);
+        if (isCalculating) return; // Prevent recursive calculation
+        
+        console.log('[handleAddAmountAChange] Attempting calculation. Input value:', value);
+        console.log('[handleAddAmountAChange] State for calculation:', {
+            hasTokenAInfo: !!tokenAInfo,
+            hasTokenBInfo: !!tokenBInfo,
+            poolReserveA_isZero: poolReserveA.isZero(),
+            poolReserveB_isZero: poolReserveB.isZero(),
+            poolReserveA_val: poolReserveA.toString(),
+            poolReserveB_val: poolReserveB.toString(),
+        });
+
+        if (value && tokenAInfo && tokenBInfo && !poolReserveA.isZero() && !poolReserveB.isZero()) {
+            setIsCalculating(true);
+            try {
+                const amountA_BN = parseUnitsSafe(value, tokenAInfo.decimals);
+                if (amountA_BN && amountA_BN.gt(0)) {
+                    const amountB_BN = amountA_BN.mul(poolReserveB).div(poolReserveA);
+                    setAddAmountB(formatUnitsSafe(amountB_BN, tokenBInfo.decimals)); // Show full precision from calc
+                } else {
+                    setAddAmountB(''); // Clear if amount A is zero or invalid
+                }
+            } catch (error) {
+                console.error("Error calculating amount B:", error);
+                setAddAmountB(''); // Clear on error
+            } finally {
+                setIsCalculating(false);
+            }
+        } else if (!value) { // If amount A is cleared
+             setIsCalculating(true); // ensure B is also cleared without re-trigger
+             setAddAmountB('');
+             setIsCalculating(false);
+        }
+    }
   };
   const handleAddAmountBChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*\.?\d*$/.test(value)) setAddAmountB(value);
-    // TODO: Add logic to estimate amountA
+    if (/^\d*\.?\d*$/.test(value)) {
+        setAddAmountB(value);
+        if (isCalculating) return; // Prevent recursive calculation
+
+        if (value && tokenAInfo && tokenBInfo && !poolReserveA.isZero() && !poolReserveB.isZero()) {
+            setIsCalculating(true);
+            try {
+                const amountB_BN = parseUnitsSafe(value, tokenBInfo.decimals);
+                if (amountB_BN && amountB_BN.gt(0)) {
+                    const amountA_BN = amountB_BN.mul(poolReserveA).div(poolReserveB);
+                    setAddAmountA(formatUnitsSafe(amountA_BN, tokenAInfo.decimals)); // Show full precision
+                } else {
+                    setAddAmountA(''); // Clear if amount B is zero or invalid
+                }
+            } catch (error) {
+                console.error("Error calculating amount A:", error);
+                setAddAmountA('');
+            } finally {
+                setIsCalculating(false);
+            }
+        } else if (!value) { // If amount B is cleared
+            setIsCalculating(true);
+            setAddAmountA('');
+            setIsCalculating(false);
+        }
+    }
   };
   const handleRemoveLpPercentChange = (value: number[]) => {
     setRemoveLpPercent(value);
