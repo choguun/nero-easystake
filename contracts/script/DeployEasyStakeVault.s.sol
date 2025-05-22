@@ -37,4 +37,4 @@ contract DeployEasyStakeVault is Script {
 
         return vault;
     }
-} 
+}

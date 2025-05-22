@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0;
+pragma solidity >=0.5.0;
 
 // a library for handling binary fixed point numbers (https://en.wikipedia.org/wiki/Fixed-point_arithmetic)
 library UQ112x112 {

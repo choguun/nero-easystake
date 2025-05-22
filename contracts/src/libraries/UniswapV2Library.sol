@@ -2,7 +2,8 @@
 pragma solidity >=0.8.0;
 
 import '../interfaces/IUniswapV2Pair.sol';
-import './SafeMath.sol';
+
+import "./SafeMath.sol";
 
 library UniswapV2Library {
     using SafeMath for uint;
@@ -21,7 +22,7 @@ library UniswapV2Library {
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+                hex'23746e66cb1763f0057bc4cc5d8fb70fa9073d7d0fd9159f8fbd4f198ba0bc0f' // Align with current UniswapV2Pair.sol bytecode hash
             )))));
     }
 
@@ -64,8 +65,8 @@ library UniswapV2Library {
         amounts = new uint[](path.length);
         amounts[0] = amountIn;
         for (uint i; i < path.length - 1; i++) {
-            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i], path[i+1]);
-            amounts[i+1] = getAmountOut(amounts[i], reserveIn, reserveOut);
+            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i], path[i + 1]);
+            amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);
         }
     }
 
@@ -75,8 +76,8 @@ library UniswapV2Library {
         amounts = new uint[](path.length);
         amounts[amounts.length - 1] = amountOut;
         for (uint i = path.length - 1; i > 0; i--) {
-            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i-1], path[i]);
-            amounts[i-1] = getAmountIn(amounts[i], reserveIn, reserveOut);
+            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i - 1], path[i]);
+            amounts[i - 1] = getAmountIn(amounts[i], reserveIn, reserveOut);
         }
     }
-} 
+}

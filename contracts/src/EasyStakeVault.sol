@@ -328,23 +328,12 @@ contract EasyStakeVault is ERC4626, Ownable, ReentrancyGuard {
      * assuming asset and shares have the same decimals.
      */
     function _convertToShares(uint256 assets, Math.Rounding /*round*/) internal view override returns (uint256 shares) {
-        // Enforce 1:1 share ratio as asset and shares have same decimals (18)
-        return assets;
-        /* // Old logic using super call for subsequent deposits
-        uint256 supply = totalSupply();
-        if (supply == 0) {
-            // Initial deposit: shares = assets (assuming 18 decimals for both)
-            // Adjust if vault share decimals differ from asset decimals.
-            return assets;
-        } else {
-            // Use the standard OZ calculation for subsequent deposits
-            return super._convertToShares(assets, round);
-        }
-        */
+        shares = previewDeposit(assets);
     }
 
-    // function _convertToAssets(uint256 shares) internal view override returns (uint256 assets) { ... }
-    // function totalAssets() public view override returns (uint256) { ... } // Already correctly returns WNERO balance via super.totalAssets()
+    function _convertToAssets(uint256 shares, Math.Rounding /*round*/) internal view override returns (uint256 assets) {
+        // ... existing code ...
+    }
 
 }
 

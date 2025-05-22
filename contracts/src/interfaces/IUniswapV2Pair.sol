@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0;
+pragma solidity >=0.5.0;
 
-interface IUniswapV2Pair {
+import './IUniswapV2ERC20.sol';
+
+interface IUniswapV2Pair is IUniswapV2ERC20 {
     function name() external pure returns (string memory);
     function symbol() external pure returns (string memory);
     function decimals() external pure returns (uint8);
@@ -35,7 +37,7 @@ interface IUniswapV2Pair {
     function factory() external view returns (address);
     function token0() external view returns (address);
     function token1() external view returns (address);
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function getReserves() external view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast);
     function price0CumulativeLast() external view returns (uint);
     function price1CumulativeLast() external view returns (uint);
     function kLast() external view returns (uint);
@@ -47,4 +49,4 @@ interface IUniswapV2Pair {
     function sync() external;
 
     function initialize(address, address) external;
-} 
+}

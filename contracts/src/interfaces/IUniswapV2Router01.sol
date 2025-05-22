@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0;
+pragma solidity >=0.6.2;
 
 interface IUniswapV2Router01 {
     function factory() external view returns (address);
@@ -48,10 +48,7 @@ interface IUniswapV2Router01 {
         uint amountBMin,
         address to,
         uint deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        bool approveMax, uint8 v, bytes32 r, bytes32 s
     ) external returns (uint amountA, uint amountB);
     function removeLiquidityETHWithPermit(
         address token,
@@ -60,10 +57,7 @@ interface IUniswapV2Router01 {
         uint amountETHMin,
         address to,
         uint deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        bool approveMax, uint8 v, bytes32 r, bytes32 s
     ) external returns (uint amountToken, uint amountETH);
     function swapExactTokensForTokens(
         uint amountIn,
@@ -99,4 +93,4 @@ interface IUniswapV2Router01 {
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
     function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
     function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
-} 
+}
