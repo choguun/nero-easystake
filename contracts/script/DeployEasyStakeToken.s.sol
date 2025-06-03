@@ -13,4 +13,4 @@ contract DeployEasyStakeToken is Script {
         console.log("EasyStakeToken deployed at:", address(easyStakeToken));
         return easyStakeToken;
     }
-} 
+}
