@@ -570,7 +570,7 @@ export default function SwapPage() {
                     <Repeat2 className="h-6 w-6 text-primary" />
                     Swap Tokens
                 </CardTitle>
-                <ConnectButton showBalance={false} accountStatus="address" />
+                {/* <ConnectButton showBalance={false} accountStatus="address" /> */}
             </div>
           <CardDescription className="flex items-center justify-between">
             <span>Exchange {fromTokenInfo.symbol} for {toTokenInfo.symbol} seamlessly.</span>
