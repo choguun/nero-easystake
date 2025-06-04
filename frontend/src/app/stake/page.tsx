@@ -1,508 +1,482 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useContext } from 'react'
-import { useSignature, useSendUserOp, useConfig, usePaymasterContext } from '@/hooks'
-import { ethers, utils as ethersUtils, Contract, Signer as EthersSigner } from 'ethers'
-import { STAKING_ABI } from '@/constants/abi'
-import { UserOperationResultInterface } from '@/types'
-import { SendUserOpContext } from '@/contexts'
+import { useState, ChangeEvent, useEffect, useCallback, useContext } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Wallet, ArrowRightLeft, Repeat2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+// Imports from stake/page.tsx
+import { useSignature, useSendUserOp, useConfig, usePaymasterContext } from '@/hooks';
+import { ethers, utils as ethersUtils, Contract, BigNumberish } from 'ethers';
+import { STAKING_ABI } from '@/constants/abi';
+import { UserOperationResultInterface } from '@/types';
+import { SendUserOpContext } from '@/contexts';
 import { CustomConnectButton } from '@/components/features/connect';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-const TESTNET_RPC_URL = 'https://rpc-testnet.nerochain.io';
-
+// Constants from stake/page.tsx
 const EASYSTAKE_VAULT_ADDRESS = '0x163EBB40a546Fd33d18dCeC56c0650fF7fECA1c7';
 const EasyStakeVaultABI = STAKING_ABI;
 const VAULT_DECIMALS = 18;
 
-const ENTRYPOINT_ABI_DEPOSIT_TO = ['function depositTo(address account) external payable'];
-const EOA_FUNDING_AMOUNT = ethersUtils.parseEther("0.1");
+export default function StakePage() {
+  const [isStakingMode, setIsStakingMode] = useState<boolean>(true);
+  const [amount, setAmount] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { toast } = useToast();
 
-const StakePage = () => {
-  const { AAaddress, isConnected, signer: aaSignerDetails } = useSignature()
-  const { execute, checkUserOpStatus } = useSendUserOp()
+  // Hooks and contexts from stake/page.tsx
+  const { AAaddress, isConnected, signer: aaSignerDetails, simpleAccountInstance } = useSignature();
+  const { execute, checkUserOpStatus } = useSendUserOp();
   const { entryPoint: entryPointAddress, rpcUrl: configRpcUrl } = useConfig();
   const sendUserOpCtx = useContext(SendUserOpContext);
   const paymasterCtx = usePaymasterContext();
 
-  const eoaSigner = aaSignerDetails as EthersSigner | undefined;
-
-  const [nativeBalance, setNativeBalance] = useState<string>('0')
-  const [isLoadingNativeBalance, setIsLoadingNativeBalance] = useState(false)
-  const [shareBalance, setShareBalance] = useState<string>('0')
-  const [isLoadingShareBalance, setIsLoadingShareBalance] = useState(false)
+  // State from stake/page.tsx
+  const [nativeBalance, setNativeBalance] = useState<string>('0');
+  const [isLoadingNativeBalance, setIsLoadingNativeBalance] = useState(false);
+  const [shareBalance, setShareBalance] = useState<string>('0');
+  const [isLoadingShareBalance, setIsLoadingShareBalance] = useState(false);
   
-  const [stakeAmount, setStakeAmount] = useState<string>('')
-  const [redeemAmount, setRedeemAmount] = useState<string>('')
+  const [isProcessingTx, setIsProcessingTx] = useState(false);
+  const [userOpHash, setUserOpHash] = useState<string | null>(null);
+  const [txStatus, setTxStatus] = useState<string>('');
+  const [isPollingStatus, setIsPollingStatus] = useState(false);
+  const [currentAction, setCurrentAction] = useState<'stake' | 'unstake' | null>(null);
 
-  const [isProcessingTx, setIsProcessingTx] = useState(false)
-  const [userOpHash, setUserOpHash] = useState<string | null>(null)
-  const [txStatus, setTxStatus] = useState<string>('')
-  const [isPollingStatus, setIsPollingStatus] = useState(false)
-  const [currentAction, setCurrentAction] = useState<'stake' | 'redeem' | 'eoa_fund' | null>(null)
+  // For estimates - using preview functions from the vault
+  const [estimatedReceiveAmount, setEstimatedReceiveAmount] = useState<string>('0.0');
 
-  const [eoaFundingTxHash, setEoaFundingTxHash] = useState<string | null>(null);
-  const [eoaFundingStatus, setEoaFundingStatus] = useState<string>('');
-  const [isProcessingEoaFunding, setIsProcessingEoaFunding] = useState(false);
-
-  const [sendToAddress, setSendToAddress] = useState<string>('');
-  const [sendAmount, setSendAmount] = useState<string>('');
-  const [isSending, setIsSending] = useState(false);
-  const [sendStatus, setSendStatus] = useState<string>('');
-
+  // Derived state (kept from original stake2/page.tsx for UI logic)
+  const inputTokenSymbol = isStakingMode ? 'NERO' : 'stNERO';
+  const outputTokenSymbol = isStakingMode ? 'stNERO' : 'NERO';
+  
   const getProvider = useCallback(() => {
-    if (eoaSigner && eoaSigner.provider) {
-      return eoaSigner.provider;
+    if (aaSignerDetails && aaSignerDetails.provider) {
+      return aaSignerDetails.provider;
     }
-    console.warn('[StakePage] EOA Signer or provider not available from useSignature. Using fallback RPC provider for read-only operations.');
-    return new ethers.providers.JsonRpcProvider(configRpcUrl || TESTNET_RPC_URL);
-  }, [eoaSigner, configRpcUrl]);
+    return new ethers.providers.JsonRpcProvider(configRpcUrl || 'https://rpc-testnet.nerochain.io');
+  }, [aaSignerDetails, configRpcUrl]);
 
   const fetchNativeBalance = useCallback(async () => {
     const provider = getProvider();
     if (AAaddress && AAaddress !== '0x' && provider) {
-      setIsLoadingNativeBalance(true)
+      setIsLoadingNativeBalance(true);
       try {
-        const balance = await provider.getBalance(AAaddress)
-        setNativeBalance(ethersUtils.formatEther(balance))
+        const balance = await provider.getBalance(AAaddress);
+        setNativeBalance(ethersUtils.formatEther(balance));
       } catch (error) {
-        console.error('[StakePage] Error fetching native balance:', error)
-        setNativeBalance('Error')
+        console.error('[Stake2Page] Error fetching native balance:', error);
+        setNativeBalance('Error');
+        toast({ title: 'Error', description: 'Could not fetch NERO balance.', variant: 'destructive' });
       } finally {
-        setIsLoadingNativeBalance(false)
+        setIsLoadingNativeBalance(false);
       }
-    } else if (!provider && isConnected && AAaddress && AAaddress !== '0x'){
-        console.warn('[StakePage] Native Balance: provider not available for AA address.')
-        setNativeBalance('Provider Error');
     }
-  }, [AAaddress, isConnected, getProvider])
+  }, [AAaddress, getProvider, toast]);
 
   const fetchShareBalance = useCallback(async () => {
     const provider = getProvider();
     if (AAaddress && AAaddress !== '0x' && provider && EASYSTAKE_VAULT_ADDRESS) {
-      setIsLoadingShareBalance(true)
+      setIsLoadingShareBalance(true);
       try {
-        const vaultContract = new Contract(EASYSTAKE_VAULT_ADDRESS, EasyStakeVaultABI, provider)
-        const balance = await vaultContract.balanceOf(AAaddress)
-        setShareBalance(ethersUtils.formatUnits(balance, VAULT_DECIMALS))
+        const vaultContract = new Contract(EASYSTAKE_VAULT_ADDRESS, EasyStakeVaultABI, provider);
+        const balance = await vaultContract.balanceOf(AAaddress);
+        setShareBalance(ethersUtils.formatUnits(balance, VAULT_DECIMALS));
       } catch (error) {
-        console.error('[StakePage] Error fetching share balance:', error)
-        setShareBalance('Error')
+        console.error('[Stake2Page] Error fetching stNERO balance:', error);
+        setShareBalance('Error');
+        toast({ title: 'Error', description: 'Could not fetch stNERO balance.', variant: 'destructive' });
       } finally {
-        setIsLoadingShareBalance(false)
+        setIsLoadingShareBalance(false);
       }
-    } else if (!provider && isConnected && AAaddress && AAaddress !== '0x'){
-        console.warn('[StakePage] Share Balance: provider not available for AA address shares.')
-        setShareBalance('Provider Error');
     }
-  }, [AAaddress, isConnected, getProvider])
+  }, [AAaddress, getProvider, toast]);
+  
+  const fetchEstimates = useCallback(async () => {
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0 || !EASYSTAKE_VAULT_ADDRESS) {
+      setEstimatedReceiveAmount('0.0');
+      return;
+    }
+
+    const provider = getProvider();
+    if (!provider) {
+        console.warn('[Stake2Page] Provider not available for fetching estimates.');
+        setEstimatedReceiveAmount('N/A'); 
+        return;
+    }
+    const vaultContract = new Contract(EASYSTAKE_VAULT_ADDRESS, EasyStakeVaultABI, provider);
+    
+    try {
+      const amountInWei = ethersUtils.parseUnits(amount, isStakingMode ? 18 : VAULT_DECIMALS);
+
+      if (isStakingMode) { // Staking NERO -> stNERO
+        if (typeof vaultContract.previewDeposit === 'function') {
+          const estimatedSharesOut = await vaultContract.previewDeposit(amountInWei);
+          setEstimatedReceiveAmount(ethersUtils.formatUnits(estimatedSharesOut, VAULT_DECIMALS));
+        } else {
+          console.warn('[Stake2Page] vaultContract.previewDeposit is not a function. Cannot fetch estimate for staking.');
+          setEstimatedReceiveAmount('N/A');
+        }
+      } else { // Unstaking stNERO (shares) -> NERO (assets)
+        if (typeof vaultContract.previewRedeem === 'function') {
+          const assetsOutWei = await vaultContract.previewRedeem(amountInWei); // amountInWei is shares
+          setEstimatedReceiveAmount(ethersUtils.formatEther(assetsOutWei));
+        } else if (typeof vaultContract.previewWithdraw === 'function') {
+          // This assumes previewWithdraw here takes shares and returns assets.
+          // Standard ERC4626 previewWithdraw typically takes assets one wants to withdraw.
+          console.warn('[Stake2Page] Using vaultContract.previewWithdraw for unstaking estimate. Ensure it expects shares as input and returns assets.');
+          const assetsOutWei = await vaultContract.previewWithdraw(amountInWei); // amountInWei is shares
+          setEstimatedReceiveAmount(ethersUtils.formatEther(assetsOutWei));
+        } else {
+          console.warn('[Stake2Page] Neither vaultContract.previewRedeem nor vaultContract.previewWithdraw is available for unstaking estimate.');
+          setEstimatedReceiveAmount('N/A');
+        }
+      }
+    } catch (error) {
+      console.error('[Stake2Page] Error fetching estimate:', error);
+      setEstimatedReceiveAmount('Error');
+    }
+  }, [amount, isStakingMode, getProvider]);
 
   useEffect(() => {
     if (isConnected && AAaddress && AAaddress !== '0x') {
-      console.log('[StakePage] Connected. AA Address available. Fetching balances...');
-      fetchNativeBalance()
-      fetchShareBalance()
+      fetchNativeBalance();
+      fetchShareBalance();
+    } else {
+      setNativeBalance('0');
+      setShareBalance('0');
     }
-  }, [isConnected, AAaddress, fetchNativeBalance, fetchShareBalance])
+  }, [isConnected, AAaddress, fetchNativeBalance, fetchShareBalance]);
+  
+  useEffect(() => {
+    if (parseFloat(amount) > 0) {
+        fetchEstimates();
+    } else {
+        setEstimatedReceiveAmount('0.0');
+    }
+  }, [amount, isStakingMode, fetchEstimates]);
 
   useEffect(() => {
-    let intervalId: number | null = null
+    let intervalId: number | null = null;
     const pollStatus = async () => {
-      if (!userOpHash || !isPollingStatus || currentAction === 'eoa_fund') return // Don't poll for EOA tx here
+      if (!userOpHash || !isPollingStatus || !currentAction) return;
       try {
         setTxStatus(`Confirming ${currentAction}...`);
-        const statusResult = await checkUserOpStatus(userOpHash)
+        const statusResult = await checkUserOpStatus(userOpHash);
         let successful = false;
         let failed = false;
 
         if (typeof statusResult === 'boolean') {
           if (statusResult === true) successful = true;
-          // else failed = true; // checkUserOpStatus might return false for pending
         } else if (statusResult && typeof statusResult === 'object') {
-          if ((statusResult as any).mined === true || (statusResult as any).executed === true) successful = true;
-          else if ((statusResult as any).failed === true) failed = true;
+          const result = statusResult as any;
+          if (result.mined === true || result.executed === true || result.success === 'true' || result.success === true) {
+            successful = true;
+          } else if (result.failed === true || result.success === 'false' || result.success === false) {
+            failed = true;
+          }
         }
-
+        
+        const actionVerb = currentAction === 'stake' ? 'Staking' : 'Unstaking';
 
         if (successful) {
-          console.log(`[StakePage] ${currentAction} successful for UserOpHash: ${userOpHash}`);
-          setTxStatus(`${currentAction === 'stake' ? 'Staking' : currentAction === 'redeem' ? 'Redemption' : 'UserOp'} successful!`)
-          setIsPollingStatus(false)
+          console.log(`[Stake2Page] ${actionVerb} successful for UserOpHash: ${userOpHash}`);
+          toast({ title: `${actionVerb} Successful!`, description: `Your ${currentAction} operation was completed.` });
+          setTxStatus(`${actionVerb} successful!`);
+          setIsPollingStatus(false);
           if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
           if (paymasterCtx) paymasterCtx.clearToken();
-          fetchNativeBalance()
-          fetchShareBalance()
-          setUserOpHash(null) 
-          setCurrentAction(null)
+          fetchNativeBalance();
+          fetchShareBalance();
+          setUserOpHash(null);
+          setCurrentAction(null);
+          setAmount('');
+          setEstimatedReceiveAmount('0.0');
         } else if (failed) {
-          console.log(`[StakePage] ${currentAction} failed for UserOpHash: ${userOpHash}`);
-          setTxStatus(`${currentAction === 'stake' ? 'Staking' : currentAction === 'redeem' ? 'Redemption' : 'UserOp'} failed.`)
-          setIsPollingStatus(false)
-          setCurrentAction(null)
+          console.log(`[Stake2Page] ${actionVerb} failed for UserOpHash: ${userOpHash}`);
+          toast({ title: `${actionVerb} Failed`, description: `Your ${currentAction} operation failed.`, variant: 'destructive' });
+          setTxStatus(`${actionVerb} failed.`);
+          setIsPollingStatus(false);
+          setCurrentAction(null);
         } else {
           setTxStatus('UserOp submitted, awaiting confirmation...');
         }
       } catch (error) {
-        console.error(`[StakePage] Error polling ${currentAction} status for UserOpHash ${userOpHash}:`, error)
-        setTxStatus(`Error polling ${currentAction} status.`)
-        setIsPollingStatus(false)
-        setCurrentAction(null)
+        console.error(`[Stake2Page] Error polling ${currentAction} status for UserOpHash ${userOpHash}:`, error);
+        toast({ title: 'Polling Error', description: `Error checking ${currentAction} status.`, variant: 'destructive' });
+        setTxStatus(`Error polling ${currentAction} status.`);
+        setIsPollingStatus(false);
+        setCurrentAction(null);
+      } finally {
+        if (!isPollingStatus) {
+            setIsProcessingTx(false); 
+        }
       }
-    }
-    if (userOpHash && isPollingStatus && currentAction !== 'eoa_fund') {
-      intervalId = window.setInterval(pollStatus, 5000) as unknown as number
-      pollStatus() 
+    };
+
+    if (userOpHash && isPollingStatus && currentAction) {
+      intervalId = window.setInterval(pollStatus, 5000) as unknown as number;
+      pollStatus();
     }
     return () => {
-      if (intervalId) window.clearInterval(intervalId)
-    }
-  }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchNativeBalance, fetchShareBalance, currentAction, sendUserOpCtx, paymasterCtx])
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchNativeBalance, fetchShareBalance, currentAction, toast, sendUserOpCtx, paymasterCtx]);
 
-  const commonTxValidations = () => {
-    const providerForChecks = getProvider();
-    if (!isConnected || !AAaddress || AAaddress === '0x' || !providerForChecks) {
-      alert('Please connect your wallet and ensure provider is available.');
+  const handleAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) {
+      setAmount(value);
+    }
+  };
+
+  const handleMaxClick = () => {
+    const balanceToSet = isStakingMode ? nativeBalance : shareBalance;
+    if (balanceToSet !== 'Error' && balanceToSet !== 'Provider Error') {
+      setAmount(balanceToSet);
+    } else {
+      setAmount('0');
+       toast({ title: 'Error', description: 'Cannot set max due to balance error.', variant: 'destructive'});
+    }
+  };
+
+  const toggleMode = () => {
+    setIsStakingMode(!isStakingMode);
+    setAmount('');
+    setEstimatedReceiveAmount('0.0');
+    setTxStatus('');
+    setUserOpHash(null);
+    setIsProcessingTx(false);
+    setIsPollingStatus(false);
+    setCurrentAction(null);
+  };
+
+ const commonTxValidations = () => {
+    if (!isConnected || !AAaddress || AAaddress === '0x') {
+      toast({ title: 'Wallet Not Connected', description: 'Please connect your wallet.', variant: 'destructive' });
       return false;
     }
     if (!EASYSTAKE_VAULT_ADDRESS) {
-      alert('Staking contract address is not configured.');
+      toast({ title: 'Configuration Error', description: 'Staking contract address is not configured.', variant: 'destructive' });
       return false;
     }
     if (!EasyStakeVaultABI || EasyStakeVaultABI.length === 0) {
-      alert('Staking contract ABI is not configured.');
+      toast({ title: 'Configuration Error', description: 'Staking contract ABI is not configured.', variant: 'destructive' });
+      return false;
+    }
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      toast({ title: 'Invalid Amount', description: `Please enter a valid amount of ${inputTokenSymbol}.`, variant: 'destructive'});
+      return false;
+    }
+    const currentBalance = parseFloat(isStakingMode ? nativeBalance : shareBalance);
+    if (isNaN(currentBalance) || numericAmount > currentBalance) {
+      toast({ title: 'Insufficient Balance', description: `You do not have enough ${inputTokenSymbol}.`, variant: 'destructive'});
       return false;
     }
     return true;
   };
 
-  const handleDirectFundAA = async () => {
-    if (!eoaSigner) {
-      alert('EOA Signer not available. Please ensure your wallet (e.g., MetaMask) is connected.');
-      return;
-    }
-    if (!entryPointAddress) {
-      alert('EntryPoint address is not configured.');
-      return;
-    }
-    if (!AAaddress || AAaddress === '0x') {
-      alert('AA Wallet address is not determined.');
-      return;
-    }
-
-    setCurrentAction('eoa_fund');
-    setIsProcessingEoaFunding(true);
-    setEoaFundingStatus(`Funding AA wallet (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO) at EntryPoint...`);
-    setEoaFundingTxHash(null);
-
-    try {
-      const entryPointInterface = new ethers.utils.Interface(ENTRYPOINT_ABI_DEPOSIT_TO);
-      const data = entryPointInterface.encodeFunctionData('depositTo', [AAaddress]);
-
-      console.log(`[StakePage] Sending EOA transaction to EntryPoint (${entryPointAddress}) for AA (${AAaddress}) with value ${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO`);
-      
-      const tx = await eoaSigner.sendTransaction({
-        to: entryPointAddress,
-        value: EOA_FUNDING_AMOUNT,
-        data: data,
-      });
-
-      setEoaFundingTxHash(tx.hash);
-      setEoaFundingStatus(`EOA Funding tx submitted: ${tx.hash}. Awaiting confirmation...`);
-      console.log('[StakePage] EOA Funding transaction sent:', tx);
-
-      await tx.wait(1); // Wait for 1 confirmation
-
-      setEoaFundingStatus(`AA Wallet funding successful! Tx: ${tx.hash}`);
-      console.log('[StakePage] EOA Funding transaction confirmed:', tx);
-      // Optionally, refresh AA native balance or EntryPoint balance for AA here if needed,
-      // though the main effect is on the EntryPoint's internal balance for the AA.
-
-    } catch (error: any) {
-      console.error('[StakePage] EOA Funding error:', error);
-      setEoaFundingStatus(`EOA Funding failed: ${error.message || 'Unknown error'}`);
-      setEoaFundingTxHash(null);
-    } finally {
-      setIsProcessingEoaFunding(false);
-      // Do not reset setCurrentAction here, so status remains visible for eoa_fund
-    }
-  };
-
-  const handleStake = async () => {
-    console.log('[StakePage] handleStake called.');
+ const handleSubmit = async () => {
     if (!commonTxValidations()) return;
-    if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
-      alert('Please enter a valid amount to stake.')
-      return
+    if (!AAaddress || AAaddress === '0x') { 
+        toast({ title: 'Account Error', description: 'Smart account address not available.', variant: 'destructive' });
+        return;
     }
-    if (parseFloat(stakeAmount) > parseFloat(nativeBalance)) {
-      alert('Insufficient NERO balance to stake this amount.');
-      return;
-    }
+
+    const amountToProcess = parseFloat(amount);
+    const action = isStakingMode ? 'stake' : 'unstake'; 
+    setCurrentAction(action);
+    setIsProcessingTx(true);
+    setUserOpHash(null);
+    setTxStatus(`Preparing to ${action}...`);
+    setIsPollingStatus(false);
     
-    setCurrentAction('stake');
-    setIsProcessingTx(true) 
-    setUserOpHash(null) // Clear previous UserOp hashes
-    setTxStatus('Preparing to stake...')
-    setIsPollingStatus(false)
-    console.log('[StakePage] Stake: Set isProcessingTx=true. Current state:', { stakeAmount, AAaddress });
+    if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(true);
 
-    let finalStakeResult: UserOperationResultInterface | null = null;
     try {
-      const amountToStake = ethersUtils.parseEther(stakeAmount)
-      console.log('[StakePage] Stake: Calling execute with amount:', stakeAmount);
-      finalStakeResult = await execute({
-        functionName: 'depositEth',
-        target: EASYSTAKE_VAULT_ADDRESS,
-        abi: EasyStakeVaultABI,
-        value: amountToStake,
-        params: [],
-      }) as UserOperationResultInterface;
-      console.log('[StakePage] Stake: execute() promise resolved. Result:', finalStakeResult);
+      let functionName: string;
+      let params: any[];
+      let txValue: BigNumberish;
 
-      if (finalStakeResult && finalStakeResult.userOpHash && !finalStakeResult.error && finalStakeResult.result !== false) {
-          setUserOpHash(finalStakeResult.userOpHash);
-          setTxStatus(`Stake UserOp submitted: ${finalStakeResult.userOpHash}. Polling for confirmation...`);
-          setIsPollingStatus(true);
-          console.log('[StakePage] Stake: Polling started for UserOpHash:', finalStakeResult.userOpHash);
+      if (isStakingMode) { // Staking NERO
+        functionName = 'depositEth';
+        // As confirmed by runtime error and stake/page.tsx, depositEth in STAKING_ABI takes 0 args from caller.
+        // The actual NERO amount is sent as the transaction value.
+        params = []; 
+        txValue = ethersUtils.parseEther(amountToProcess.toString());
+      } else { // Unstaking stNERO
+        functionName = 'redeem'; // Assuming 'redeem' is the correct function in STAKING_ABI for stake2/page.tsx
+        const sharesToRedeem = ethersUtils.parseUnits(amountToProcess.toString(), VAULT_DECIMALS);
+        // Parameters for redeem(uint256 shares, address receiver, address owner)
+        params = [sharesToRedeem, AAaddress, AAaddress]; 
+        txValue = '0'; // No ETH value sent for redeem operation itself
+      }
+      
+      if (paymasterCtx && paymasterCtx.selectedPaymasterType && paymasterCtx.selectedToken) {
+        console.log('[Stake2Page] Paymaster options from context (used internally by useSendUserOp):', {
+            type: paymasterCtx.selectedPaymasterType,
+            token: paymasterCtx.selectedToken,
+        });
       } else {
-          const errorMessage = finalStakeResult?.error || 'Stake submission failed or hash missing.';
-          setTxStatus(`Staking Failed: ${errorMessage}`);
-          console.log('[StakePage] Stake: Execute completed with failure/error, not polling. Result:', finalStakeResult);
-          setUserOpHash(finalStakeResult?.userOpHash || null);
-          setIsPollingStatus(false);
+        console.log('[Stake2Page] No paymaster token/type selected in context.');
       }
 
-    } catch (error: any) {
-      console.error('[StakePage] Staking error caught by StakePage:', error)
-      setTxStatus(`Staking error: ${error.message || 'Unknown error'}`)
-      setIsPollingStatus(false);
-      setUserOpHash(null);
-    } finally {
-        setIsProcessingTx(false) 
-        console.log('[StakePage] Stake: Finally block. Set isProcessingTx=false.');
-    }
-  }
-
-  const handleRedeem = async () => {
-    console.log('[StakePage] handleRedeem called.');
-    if (!commonTxValidations()) return;
-    if (!redeemAmount || parseFloat(redeemAmount) <= 0) {
-      alert('Please enter a valid amount of shares to redeem.')
-      return
-    }
-    if (parseFloat(redeemAmount) > parseFloat(shareBalance)) {
-      alert('Insufficient share balance to redeem this amount.');
-      return;
-    }
-
-    setCurrentAction('redeem');
-    setIsProcessingTx(true)
-    setUserOpHash(null)
-    setTxStatus('Preparing to redeem...')
-    setIsPollingStatus(false)
-    console.log('[StakePage] Redeem: Set isProcessingTx=true. Current state:', { redeemAmount, AAaddress });
-    let finalResult: UserOperationResultInterface | null = null;
-    try {
-      const sharesToRedeem = ethersUtils.parseUnits(redeemAmount, VAULT_DECIMALS)
-      console.log('[StakePage] Redeem: Calling execute with shares:', redeemAmount);
-      finalResult = await execute({
-        functionName: 'redeemEth',
+      console.log(`[Stake2Page] Calling execute for ${action} with:`, {
+        functionName,
         target: EASYSTAKE_VAULT_ADDRESS,
-        abi: EasyStakeVaultABI,
-        value: '0',
-        params: [sharesToRedeem, AAaddress],
-      }) as UserOperationResultInterface;
-      console.log('[StakePage] Redeem: execute() promise resolved. Result:', finalResult);
-
-      if (finalResult && finalResult.userOpHash && !finalResult.error && finalResult.result !== false) {
-          setUserOpHash(finalResult.userOpHash);
-          setTxStatus(`Redeem UserOp submitted: ${finalResult.userOpHash}. Polling for confirmation...`);
-          setIsPollingStatus(true);
-          console.log('[StakePage] Redeem: Polling started for UserOpHash:', finalResult.userOpHash);
-      } else {
-          const errorMessage = finalResult?.error || 'Redeem submission failed or hash missing.';
-          setTxStatus(`Redemption Failed: ${errorMessage}`);
-          console.log('[StakePage] Redeem: Execute completed with failure/error, not polling. Result:', finalResult);
-          setUserOpHash(finalResult?.userOpHash || null);
-          setIsPollingStatus(false);
-      }
-
-    } catch (error: any) {
-      console.error('[StakePage] Redemption error caught by StakePage:', error)
-      setTxStatus(`Redemption error: ${error.message || 'Unknown error'}`)
-      setIsPollingStatus(false);
-      setUserOpHash(null);
-    } finally {
-        setIsProcessingTx(false)
-        console.log('[StakePage] Redeem: Finally block. Set isProcessingTx=false.');
-    }
-  }
-
-  const handleSendVaultToken = async () => {
-    if (!sendToAddress || !ethers.utils.isAddress(sendToAddress)) {
-      alert('Please enter a valid recipient address.');
-      return;
-    }
-    if (!sendAmount || parseFloat(sendAmount) <= 0) {
-      alert('Please enter a valid amount to send.');
-      return;
-    }
-    setIsSending(true);
-    setSendStatus('Preparing to send...');
-    try {
-      const amountToSend = ethers.utils.parseUnits(sendAmount, VAULT_DECIMALS);
+        abi: "EasyStakeVaultABI (not logging full ABI)",
+        value: txValue.toString(),
+        params,
+      });
+      
       const result = await execute({
-        functionName: 'transfer',
-        target: EASYSTAKE_VAULT_ADDRESS,
-        abi: EasyStakeVaultABI,
-        value: '0',
-        params: [sendToAddress, amountToSend],
-      }) as UserOperationResultInterface;
-      if (result && result.userOpHash && !result.error && result.result !== false) {
-        setSendStatus(`Send UserOp submitted: ${result.userOpHash}.`);
-      } else {
-        setSendStatus(`Send failed: ${result?.error || 'Unknown error'}`);
-      }
-    } catch (error: any) {
-      setSendStatus(`Send error: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsSending(false);
-    }
-  };
+        functionName,
+        target: EASYSTAKE_VAULT_ADDRESS, 
+        abi: EasyStakeVaultABI,          
+        value: txValue, 
+        params: params,    
+      }) as UserOperationResultInterface; // Added type assertion as in stake/page.tsx
 
-  const getButtonText = (actionType: 'stake' | 'redeem') => {
-    if (currentAction === actionType) { // Only show specific status if it's for this button's action
-      if (isProcessingTx && (actionType === 'stake' || actionType === 'redeem') ) { 
-        return actionType === 'stake' ? 'Staking...' : 'Redeeming...';
+      if (result && result.userOpHash && !result.error && (result as any).result !== false) { // Added (result as any).result check like in stake/page.tsx
+        setUserOpHash(result.userOpHash);
+        setTxStatus(`UserOperation submitted: ${result.userOpHash}`);
+        setIsPollingStatus(true);
+      } else {
+        const errorMessage = result?.error || (result?.userOpHash ? 'Operation may have failed or was not mined.' : 'Submission failed or hash missing.');
+        toast({ title: `${action === 'stake' ? 'Staking' : 'Unstaking'} Failed`, description: errorMessage, variant: 'destructive' });
+        setTxStatus(`${action === 'stake' ? 'Staking' : 'Unstaking'} Failed: ${errorMessage}`);
+        setUserOpHash(result?.userOpHash || null);
+        setIsPollingStatus(false); // Ensure polling stops on failure
+        if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false); // Close panel on failure too
       }
-      // For UserOps, txStatus will show prefund status, then staking status
-      // isPollingStatus will be true for the actual stake/redeem UserOp
-      if (isPollingStatus && (actionType === 'stake' || actionType === 'redeem')) { 
-        return txStatus.startsWith('Confirming') || txStatus.startsWith('UserOp submitted') || txStatus.startsWith('Status: Still processing') 
-               ? (txStatus || 'Polling...') 
-               : (actionType === 'stake' ? 'Stake NERO' : 'Redeem Shares');
-      }
-      // If not polling but still processing (e.g. prefund step, or error occurred before polling)
-      if (isProcessingTx && txStatus) {
-          return txStatus;
-      }
+
+    } catch (error: any) {
+      console.error(`[Stake2Page] Error during ${action}:`, error);
+      toast({ title: `${isStakingMode ? 'Staking' : 'Unstaking'} Failed`, description: error.message || 'An unexpected error occurred.', variant: 'destructive' });
+      setTxStatus(`Error during ${action}: ${error.message || 'Unknown error'}`);
+      setIsProcessingTx(false); // Ensure loading state is reset
+      setCurrentAction(null);
+      if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+    } finally {
+       // isProcessingTx is primarily controlled by pollingStatus now for success cases
+       // For direct error or non-polling failure, it should be reset in catch or specific else blocks
+       // if (!isPollingStatus) { // This might prematurely set isProcessingTx to false if polling just started
+       //   setIsProcessingTx(false);
+       // }
     }
-    return actionType === 'stake' ? 'Stake NERO' : 'Redeem Shares';
   };
 
   return (
-    <div className="container mx-auto p-4 pt-10 min-h-screen bg-gray-900 text-white">
-      <h1 className="text-3xl font-bold mb-6 text-center text-purple-400">AA Stake & Redeem NERO</h1>
-
-      {!isConnected && (
-        <div className="flex justify-center">
-          <ConnectButton />
-        </div>
-      )}
-
-      {isConnected && AAaddress && AAaddress !== '0x' ? (
-        <div className="bg-gray-800 shadow-xl rounded-lg p-6 mb-8 max-w-md mx-auto">
-          <p className="text-lg mb-1 text-gray-300">AA Wallet: <span className="font-mono text-sm text-purple-300 break-all">{AAaddress}</span></p>
-          <p className="text-lg mb-1 text-gray-300">
-            NERO Balance (AA Wallet): {isLoadingNativeBalance ? 'Loading...' : <span className="font-semibold text-purple-300">{nativeBalance} NERO</span>}
-          </p>
-          <p className="text-lg mb-2 text-gray-300">
-            Vault Shares (stNERO): {isLoadingShareBalance ? 'Loading...' : <span className="font-semibold text-purple-300">{shareBalance}</span>}
-          </p>
-          <button 
-            onClick={() => { fetchNativeBalance(); fetchShareBalance(); }}
-            disabled={isLoadingNativeBalance || isLoadingShareBalance || isProcessingTx || isPollingStatus || isProcessingEoaFunding}
-            className="w-full px-4 py-2 mb-3 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:bg-gray-500 transition-colors"
-          >
-            Refresh Balances
-          </button>
-          {eoaSigner && entryPointAddress && AAaddress && AAaddress !== '0x' && (
-            <div className="mt-2 pt-3 border-t border-gray-700">
-              {/* <button 
-                onClick={handleDirectFundAA}
-                disabled={isProcessingEoaFunding || isProcessingTx || isPollingStatus}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 disabled:bg-gray-500 transition-colors"
-              >
-                {isProcessingEoaFunding ? 'Funding AA via EOA...' : `Fund AA at EntryPoint (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO via EOA)`}
-              </button> */}
-              {eoaFundingStatus && (
-                <p className={`text-xs mt-2 text-center ${eoaFundingStatus.includes('failed') || eoaFundingStatus.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
-                  EOA Funding Status: {eoaFundingStatus}
-                  {eoaFundingTxHash && <span> (Tx: <a href={`https://testnet.neroscan.io/tx/${eoaFundingTxHash}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-300">{eoaFundingTxHash.substring(0,6)}...{eoaFundingTxHash.substring(eoaFundingTxHash.length - 4)}</a>)</span>}
-                </p>
-              )}
+    <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center px-4 md:px-6">
+      <Card className="shadow-lg w-full max-w-2xl">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div className="flex-grow">
+              <CardTitle className="text-2xl flex items-center gap-2">
+                <Repeat2 className="h-6 w-6 text-primary" />
+                {isStakingMode ? 'Stake NERO, Get stNERO' : 'Unstake stNERO, Get NERO'}
+              </CardTitle>
+              <CardDescription>
+                {isStakingMode 
+                  ? 'Stake your NERO to receive stNERO and earn rewards.' 
+                  : 'Unstake your stNERO to receive NERO.'}
+                {(!isConnected || !AAaddress || AAaddress === "0x") && " Please connect your wallet to proceed."}
+              </CardDescription>
             </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-center text-xl text-gray-400 mb-8">Please connect your wallet (e.g., MetaMask for EOA, then link/create AA).</p>
-      )}
+            <CustomConnectButton />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* <div className="flex justify-end">
+            <Button variant="outline" onClick={toggleMode} size="sm" className="gap-2">
+              <ArrowRightLeft className="h-4 w-4" />
+              Switch to {isStakingMode ? 'Unstake stNERO' : 'Stake NERO'}
+            </Button>
+          </div> */}
 
-      {isConnected && AAaddress && AAaddress !== '0x' && (
-        <div className="bg-gray-800 shadow-xl rounded-lg p-6 mb-4 max-w-md mx-auto">
-          <h2 className="text-2xl font-semibold mb-3 text-center text-purple-300">Stake NERO</h2>
-          <input type="number" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} placeholder="Amount of NERO to stake" disabled={isProcessingTx || isPollingStatus || isProcessingEoaFunding} className="w-full mb-3 px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          <button onClick={handleStake} disabled={isProcessingTx || isPollingStatus || isProcessingEoaFunding || !stakeAmount || parseFloat(stakeAmount) <= 0 || nativeBalance === 'Error' || parseFloat(nativeBalance) < parseFloat(stakeAmount)} className="w-full px-6 py-3 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors">
-            {getButtonText('stake')}
-          </button>
-        </div>
-      )}
+          <div className="space-y-2">
+            <div className="flex justify-between items-baseline">
+              <Label htmlFor="amount-input">Amount to {isStakingMode ? 'Stake' : 'Unstake'} ({inputTokenSymbol})</Label>
+               <span className="text-sm text-muted-foreground">
+                 Balance: {isLoadingNativeBalance || isLoadingShareBalance ? "Loading..." : (isStakingMode ? nativeBalance : shareBalance)} {inputTokenSymbol}
+               </span>
+            </div>
+            <div className="relative">
+              <Input
+                id="amount-input"
+                type="text"
+                placeholder="0.0"
+                value={amount}
+                onChange={handleAmountChange}
+                className="pr-16"
+                inputMode="decimal"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleMaxClick}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7"
+              >
+                Max
+              </Button>
+            </div>
+          </div>
 
-      {isConnected && AAaddress && AAaddress !== '0x' && (
-        <div className="bg-gray-800 shadow-xl rounded-lg p-6 max-w-md mx-auto">
-          <h2 className="text-2xl font-semibold mb-3 text-center text-purple-300">Redeem Vault Shares</h2>
-          <input type="number" value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)} placeholder="Amount of shares to redeem" disabled={isProcessingTx || isPollingStatus || isProcessingEoaFunding} className="w-full mb-3 px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-          <button onClick={handleRedeem} disabled={isProcessingTx || isPollingStatus || isProcessingEoaFunding || !redeemAmount || parseFloat(redeemAmount) <= 0 || shareBalance === 'Error' || parseFloat(shareBalance) < parseFloat(redeemAmount)} className="w-full px-6 py-3 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors">
-            {getButtonText('redeem')}
-          </button>
-        </div>
-      )}
+          <div className="flex items-center justify-center text-muted-foreground">
+            <Button variant="outline" onClick={toggleMode} size="sm" className="gap-2">
+                <ArrowRightLeft className="h-4 w-4" />
+            </Button>
+          </div>
 
-      {isConnected && AAaddress && AAaddress !== '0x' && (
-        <div className="bg-gray-800 shadow-xl rounded-lg p-6 max-w-md mx-auto mt-6">
-          <h2 className="text-2xl font-semibold mb-3 text-center text-purple-300">Send stNERO</h2>
-          <input
-            type="text"
-            value={sendToAddress}
-            onChange={e => setSendToAddress(e.target.value)}
-            placeholder="Recipient address"
-            disabled={isSending}
-            className="w-full mb-3 px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <input
-            type="number"
-            value={sendAmount}
-            onChange={e => setSendAmount(e.target.value)}
-            placeholder="Amount of stNERO to send"
-            disabled={isSending}
-            className="w-full mb-3 px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <button
-            onClick={handleSendVaultToken}
-            disabled={isSending || !sendToAddress || !sendAmount}
-            className="w-full px-6 py-3 font-semibold text-white bg-yellow-600 rounded-md hover:bg-yellow-700 disabled:opacity-50 transition-colors"
-          >
-            {isSending ? 'Sending...' : 'Send stNERO'}
-          </button>
-          {sendStatus && (
-            <p className={`mt-2 text-center text-sm ${sendStatus.includes('error') || sendStatus.includes('failed') ? 'text-red-400' : 'text-blue-400'}`}>
-              {sendStatus}
+          <div className="space-y-2">
+            <Label htmlFor="estimate-output">Estimated {outputTokenSymbol} Received</Label>
+            <Input
+              id="estimate-output"
+              type="text"
+              readOnly
+              value={estimatedReceiveAmount !== 'Error' && parseFloat(estimatedReceiveAmount) > 0 ? `≈ ${parseFloat(estimatedReceiveAmount).toFixed(4)}` : '0.0'}
+              className="bg-muted border-muted cursor-not-allowed"
+            />
+            {estimatedReceiveAmount === 'Error' && (
+              <p className="text-xs text-destructive">Could not fetch estimate.</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              {txStatus || (userOpHash && `UserOp: ${userOpHash.substring(0,10)}...`)}
             </p>
-          )}
-        </div>
-      )}
+          </div>
 
-      {(userOpHash || (currentAction === 'stake' && txStatus && !isPollingStatus && !isProcessingTx)) &&  ( // Show status for UserOps
-        <div className="mt-6 p-4 bg-gray-800 rounded-lg shadow-xl max-w-md mx-auto text-center">
-          <p className="text-md font-semibold text-purple-300 mb-1">UserOperation Status:</p>
-          {userOpHash && <p className="text-xs text-gray-400 mb-1 break-all">UserOp Hash: <span className="font-mono text-purple-300">{userOpHash}</span></p>}
-          <p className={`text-sm font-medium ${txStatus.includes('successful') ? 'text-green-400' : txStatus.includes('failed') || txStatus.includes('Error') ? 'text-red-400' : 'text-blue-400'}`}>
-            Status: {txStatus || 'Waiting...'}
-          </p>
-        </div>
-      )}
+          <div className="border-t pt-4 mt-4">
+             <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Wallet className="h-4 w-4" />
+                Your {outputTokenSymbol} Balance: {isLoadingNativeBalance || isLoadingShareBalance ? "Loading..." : (isStakingMode ? shareBalance : nativeBalance)} {outputTokenSymbol}
+            </p>
+          </div>
+
+        </CardContent>
+        <CardFooter>
+          <Button
+             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+             onClick={handleSubmit}
+             disabled={!isConnected || isProcessingTx || parseFloat(amount) <= 0 || isNaN(parseFloat(amount)) || (isStakingMode && parseFloat(amount) > parseFloat(nativeBalance)) || (!isStakingMode && parseFloat(amount) > parseFloat(shareBalance)) }
+          >
+             {isProcessingTx 
+                ? `${currentAction === 'stake' ? 'Staking' : 'Unstaking'}...` 
+                : `${isStakingMode ? 'Stake' : 'Unstake'} ${inputTokenSymbol}`}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
-  )
+  );
 }
-
-export default StakePage

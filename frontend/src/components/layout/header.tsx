@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, Wallet } from 'lucide-react';
+import { Menu, Wallet, Award } from 'lucide-react';
 import { CustomConnectButton } from '../features/connect';
 
 export function Header() {
@@ -17,29 +17,41 @@ export function Header() {
             <span className="font-bold text-primary">EasyStake</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm">
-            <Link
+          <Link
               href="/"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 cursor-pointer"
             >
               Home
             </Link>
              <Link
               href="/stake"
-              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium" // Highlight Stake link
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer" 
             >
               Stake
             </Link>
             <Link
               href="/swap"
-              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium" // Highlight Stake link
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer"
             >
               Swap
             </Link>
             <Link
               href="/liquidity"
-              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium" // Highlight Stake link
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer"
             >
               Liquidity
+            </Link>
+            <Link
+              href="/rewards"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium flex items-center gap-1 cursor-pointer"
+            >
+              <Award className="h-4 w-4" /> Rewards
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer"
+            >
+              Leaderboard
             </Link>
           </nav>
         </div>

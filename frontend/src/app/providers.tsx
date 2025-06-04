@@ -17,18 +17,10 @@ import {
   TransactionProvider,
   WrapWagmiProvider,
 } from '@/contexts'
-import { useSignature, useAAtransfer, useSendUserOp, useConfig, useScreenManager } from '@/hooks'
+import { useScreenManager } from '@/hooks'
 import ScreenRenderer from '@/components/ScreenRenderer'
 import '@rainbow-me/rainbowkit/styles.css'
-import { WalletConfig } from '@/types'
 import config from '@/nerowallet.config'
-
-interface SocialWalletProps {
-  config: WalletConfig
-  zIndex?: number
-  children?: React.ReactNode
-  mode?: 'sidebar' | 'button'
-}
 
 // Import potential providers like ThemeProvider, QueryClientProvider, etc.
 
