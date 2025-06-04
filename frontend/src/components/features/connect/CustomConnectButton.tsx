@@ -13,97 +13,149 @@ import { CustomConnectButtonProps } from '@/types'
 
 const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
   const { isWalletPanel, setIsWalletPanel } = useContext(SendUserOpContext)!
-  const { AAaddress: aaAddressFromHook } = useSignature()
+  const { 
+    AAaddress: aaAddressFromContext, 
+    isConnected: aaIsConnected,
+    signMessage: initiateSiweAndAAConnection, 
+    loading: signatureLoading 
+  } = useSignature()
 
-  const [eoaIsConnected, setEoaIsConnected] = useState(false)
-  const [currentEoaAddress, setCurrentEoaAddress] = useState<string | null>(null)
+  const [eoaIsConnectedLocal, setEoaIsConnectedLocal] = useState(false)
+  const [currentEoaAddressLocal, setCurrentEoaAddressLocal] = useState<string | null>(null)
+
+  console.log("[CustomConnectButton] Render. Mode:", mode, "AA Connected (Context):", aaIsConnected, "Signature Loading:", signatureLoading);
 
   const getAASessionLocalStorageKey = (eoaAddress: string): string => {
     return `siwe_aa_session_for_${eoaAddress}`
   }
 
   useEffect(() => {
-    if (eoaIsConnected && currentEoaAddress) {
-      if (aaAddressFromHook && aaAddressFromHook !== '0x') {
-        localStorage.setItem(getAASessionLocalStorageKey(currentEoaAddress), aaAddressFromHook)
+    console.log("[CustomConnectButton] useEffect for localStorage. EOA Connected Local:", eoaIsConnectedLocal, "Current EOA Local:", currentEoaAddressLocal, "AA Addr Context:", aaAddressFromContext);
+    if (eoaIsConnectedLocal && currentEoaAddressLocal) {
+      if (aaAddressFromContext && aaAddressFromContext !== '0x') {
+        localStorage.setItem(getAASessionLocalStorageKey(currentEoaAddressLocal), aaAddressFromContext)
       } else {
-        localStorage.removeItem(getAASessionLocalStorageKey(currentEoaAddress))
+        localStorage.removeItem(getAASessionLocalStorageKey(currentEoaAddressLocal))
       }
     }
-  }, [eoaIsConnected, currentEoaAddress, aaAddressFromHook])
+  }, [eoaIsConnectedLocal, currentEoaAddressLocal, aaAddressFromContext])
 
   useEffect(() => {
-    if (!eoaIsConnected) {
+    console.log("[CustomConnectButton] useEffect for panel visibility. EOA Connected Local:", eoaIsConnectedLocal);
+    if (!eoaIsConnectedLocal) {
       setIsWalletPanel(false)
     }
-  }, [eoaIsConnected, setIsWalletPanel])
-
-  const renderButton = (openConnectModal: () => void) => (
-    <WalletConnectSidebar onClick={openConnectModal} variant='Connect' />
-  )
+  }, [eoaIsConnectedLocal, setIsWalletPanel])
 
   return (
     <div>
       <RainbowConnectButton.Custom>
         {({ account, chain, openChainModal, openConnectModal, authenticationStatus, mounted }) => {
           const rkReady = mounted && authenticationStatus !== 'loading'
-
-          const rkConnected = Boolean(
+          const rkConnected = !!(
             rkReady &&
-              account &&
-              chain &&
-              (!authenticationStatus || authenticationStatus === 'authenticated'),
+            account &&
+            chain &&
+            (!authenticationStatus || authenticationStatus === 'authenticated')
           )
+          console.log("[CustomConnectButton] RainbowKit.Custom render fn. RKReady:", rkReady, "RKConnected (EOA):", rkConnected, "AuthStatus:", authenticationStatus, "Account:", account?.address);
 
-          if (eoaIsConnected !== rkConnected) {
-            setEoaIsConnected(rkConnected)
-          }
-          if (rkConnected && account?.address && currentEoaAddress !== account.address) {
-            setCurrentEoaAddress(account.address)
-          } else if (!rkConnected && currentEoaAddress !== null) {
-            if (currentEoaAddress) {
-              localStorage.removeItem(getAASessionLocalStorageKey(currentEoaAddress))
+          useEffect(() => {
+            console.log("[CustomConnectButton] useEffect syncing RK state. RKConnected:", rkConnected, "Account Addr:", account?.address );
+            setEoaIsConnectedLocal(rkConnected)
+            if (rkConnected && account?.address) {
+              setCurrentEoaAddressLocal(account.address)
+            } else if (!rkConnected) {
+              if (currentEoaAddressLocal) {
+                localStorage.removeItem(getAASessionLocalStorageKey(currentEoaAddressLocal))
+              }
+              setCurrentEoaAddressLocal(null)
             }
-            setCurrentEoaAddress(null)
-          }
+          }, [rkConnected, account?.address, currentEoaAddressLocal])
           
-          if (!rkReady) return null
+          if (!rkReady) {
+            console.log("[CustomConnectButton] Not rkReady, rendering null.");
+            return null
+          }
 
           if (chain?.unsupported) {
+            console.log("[CustomConnectButton] Chain unsupported, rendering chain modal trigger.");
             return <WalletConnectSidebar variant='Connect' onClick={openChainModal} />
           }
 
+          console.log(`[CustomConnectButton] Decision Logic: Mode: ${mode}, EOA Connected (Local): ${eoaIsConnectedLocal}, AA Connected (Context): ${aaIsConnected}`);
+
           if (mode === 'button') {
-            if (rkConnected) {
+            if (eoaIsConnectedLocal) {
+              if (aaIsConnected) {
+                console.log("[CustomConnectButton] Mode 'button': EOA connected, AA connected. Rendering AA panel toggle.");
+                return (
+                  <WalletConnectRoundedButton
+                    onClick={() => setIsWalletPanel(!isWalletPanel)}
+                    AAaddress={aaAddressFromContext}
+                    isConnected={true}
+                  />
+                )
+              } else {
+                console.log("[CustomConnectButton] Mode 'button': EOA connected, AA NOT connected. Rendering original 'Connect AA' button.");
+                return (
+                  <WalletConnectRoundedButton
+                    onClick={() => { 
+                      console.log("[CustomConnectButton] 'Connect AA' (WalletConnectRoundedButton) button clicked. SignatureLoading:", signatureLoading);
+                      if (!signatureLoading) {
+                        console.log("[CustomConnectButton] (WalletConnectRoundedButton) Calling initiateSiweAndAAConnection..."); 
+                        initiateSiweAndAAConnection(); 
+                      }
+                    }}
+                    AAaddress={aaAddressFromContext || '0x'}
+                    isConnected={false}
+                  />
+                )
+              }
+            } else {
+              console.log("[CustomConnectButton] Mode 'button': EOA NOT connected. Rendering 'Connect EOA' button.");
               return (
                 <WalletConnectRoundedButton
-                  onClick={() => setIsWalletPanel(!isWalletPanel)}
-                  AAaddress={aaAddressFromHook}
-                  isConnected={rkConnected}
+                  onClick={openConnectModal}
+                  AAaddress={'0x'}
+                  isConnected={false}
                 />
               )
             }
-            return (
-              <WalletConnectRoundedButton
-                onClick={openConnectModal}
-                AAaddress={aaAddressFromHook}
-                isConnected={rkConnected}
-              />
-            )
           }
 
           if (mode === 'sidebar') {
-            if (rkConnected) {
-              return (
-                <ToggleWalletVisibilityButton
-                  onClick={() => setIsWalletPanel(!isWalletPanel)}
-                  size={'sm'}
-                  isWalletPanel={isWalletPanel}
-                />
-              )
+            if (eoaIsConnectedLocal) {
+              if (aaIsConnected) {
+                console.log("[CustomConnectButton] Mode 'sidebar': EOA connected, AA connected. Rendering AA panel toggle (sidebar).");
+                return (
+                  <ToggleWalletVisibilityButton
+                    onClick={() => setIsWalletPanel(!isWalletPanel)}
+                    size={'sm'}
+                    isWalletPanel={isWalletPanel}
+                  />
+                )
+              } else {
+                console.log("[CustomConnectButton] Mode 'sidebar': EOA connected, AA NOT connected. Rendering explicit 'Connect Smart Account' button.");
+                return (
+                  <button
+                    onClick={() => {
+                      console.log("[CustomConnectButton] 'Connect Smart Account' (sidebar) button clicked. SignatureLoading:", signatureLoading);
+                      initiateSiweAndAAConnection();
+                    }}
+                    disabled={signatureLoading}
+                    className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+                  >
+                    {signatureLoading ? 'Connecting AA...' : 'Connect Smart Account'}
+                  </button>
+                )
+              }
+            } else {
+              console.log("[CustomConnectButton] Mode 'sidebar': EOA NOT connected. Rendering 'Connect' sidebar button.");
+              return <WalletConnectSidebar onClick={openConnectModal} variant='Connect' />
             }
-            return renderButton(openConnectModal)
           }
+          console.log("[CustomConnectButton] No mode matched or other condition, rendering null.");
           return null
         }}
       </RainbowConnectButton.Custom>

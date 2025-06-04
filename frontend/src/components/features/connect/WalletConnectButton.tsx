@@ -8,7 +8,7 @@ const WalletConnectRoundedButton: React.FC<WalletConnectRoundedButtonProps> = ({
 }) => {
   const [isCopied, setIsCopied] = useState(false);
 
-  const handleCopyAddress = (e: React.MouseEvent) => {
+  const handleCopyAddress = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     if (AAaddress && AAaddress !== '0x') {
       navigator.clipboard.writeText(AAaddress)
@@ -20,6 +20,12 @@ const WalletConnectRoundedButton: React.FC<WalletConnectRoundedButtonProps> = ({
     }
   };
 
+  const handleCopyKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      handleCopyAddress(e);
+    }
+  };
+
   const getButtonContent = () => {
     if (!isConnected || !AAaddress || AAaddress === '0x') {
       return 'CONNECT';
@@ -27,13 +33,16 @@ const WalletConnectRoundedButton: React.FC<WalletConnectRoundedButtonProps> = ({
     return (
       <div className="flex items-center space-x-2">
         <span>{`${AAaddress.slice(0, 6)}...${AAaddress.slice(-2)}`}</span>
-        <button 
+        <span 
           onClick={handleCopyAddress} 
-          className="p-1 hover:bg-gray-700 rounded text-xs"
+          onKeyDown={handleCopyKeyDown}
+          role="button"
+          tabIndex={0}
+          className="p-1 hover:bg-gray-700 rounded text-xs cursor-pointer"
           title="Copy address"
         >
           {isCopied ? 'Copied!' : 'Copy'}
-        </button>
+        </span>
       </div>
     );
   };
