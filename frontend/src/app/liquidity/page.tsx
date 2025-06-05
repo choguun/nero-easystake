@@ -426,7 +426,7 @@ export default function LiquidityPage() {
         // Ideally, poll and only proceed to removeLiquidity after approval confirmed.
         toast({ title: 'Approval Sent', description: `User operation ${result.userOpHash} submitted.`});
         return true; // Indicate approval was sent
-      } else {
+    } else {
         throw new Error(result.error || 'LP Token approval failed to submit.');
       }
     } catch (error: any) {
@@ -629,7 +629,7 @@ export default function LiquidityPage() {
         }
     }
   };
-  const handleRemoveLpPercentChange = (value: number[]) => {
+   const handleRemoveLpPercentChange = (value: number[]) => {
     setRemoveLpPercent(value);
     if (lpTokenInfo && parseFloat(lpTokenInfo.balance) > 0) {
         const percentVal = value[0] / 100;

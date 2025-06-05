@@ -23,8 +23,10 @@ import { UserOperationResultInterface } from '@/types';
 import { SendUserOpContext } from '@/contexts';
 import { CustomConnectButton } from '@/components/features/connect';
 
-// Constants from stake/page.tsx
-const EASYSTAKE_VAULT_ADDRESS = '0x163EBB40a546Fd33d18dCeC56c0650fF7fECA1c7';
+// Import STNERO_ADDRESS from constants
+import { STNERO_ADDRESS } from '@/constants/contracts';
+
+// Use STNERO_ADDRESS from constants. The old EASYSTAKE_VAULT_ADDRESS constant is removed.
 const EasyStakeVaultABI = STAKING_ABI;
 const VAULT_DECIMALS = 18;
 
@@ -86,10 +88,10 @@ export default function StakePage() {
 
   const fetchShareBalance = useCallback(async () => {
     const provider = getProvider();
-    if (AAaddress && AAaddress !== '0x' && provider && EASYSTAKE_VAULT_ADDRESS) {
+    if (AAaddress && AAaddress !== '0x' && provider && STNERO_ADDRESS) {
       setIsLoadingShareBalance(true);
       try {
-        const vaultContract = new Contract(EASYSTAKE_VAULT_ADDRESS, EasyStakeVaultABI, provider);
+        const vaultContract = new Contract(STNERO_ADDRESS, EasyStakeVaultABI, provider);
         const balance = await vaultContract.balanceOf(AAaddress);
         setShareBalance(ethersUtils.formatUnits(balance, VAULT_DECIMALS));
       } catch (error) {
@@ -104,7 +106,7 @@ export default function StakePage() {
   
   const fetchEstimates = useCallback(async () => {
     const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0 || !EASYSTAKE_VAULT_ADDRESS) {
+    if (isNaN(numericAmount) || numericAmount <= 0 || !STNERO_ADDRESS) {
       setEstimatedReceiveAmount('0.0');
       return;
     }
@@ -115,7 +117,7 @@ export default function StakePage() {
         setEstimatedReceiveAmount('N/A'); 
         return;
     }
-    const vaultContract = new Contract(EASYSTAKE_VAULT_ADDRESS, EasyStakeVaultABI, provider);
+    const vaultContract = new Contract(STNERO_ADDRESS, EasyStakeVaultABI, provider);
     
     try {
       const amountInWei = ethersUtils.parseUnits(amount, isStakingMode ? 18 : VAULT_DECIMALS);
@@ -267,7 +269,7 @@ export default function StakePage() {
       toast({ title: 'Wallet Not Connected', description: 'Please connect your wallet.', variant: 'destructive' });
       return false;
     }
-    if (!EASYSTAKE_VAULT_ADDRESS) {
+    if (!STNERO_ADDRESS) {
       toast({ title: 'Configuration Error', description: 'Staking contract address is not configured.', variant: 'destructive' });
       return false;
     }
@@ -335,7 +337,7 @@ export default function StakePage() {
 
       console.log(`[Stake2Page] Calling execute for ${action} with:`, {
         functionName,
-        target: EASYSTAKE_VAULT_ADDRESS,
+        target: STNERO_ADDRESS,
         abi: "EasyStakeVaultABI (not logging full ABI)",
         value: txValue.toString(),
         params,
@@ -343,7 +345,7 @@ export default function StakePage() {
       
       const result = await execute({
         functionName,
-        target: EASYSTAKE_VAULT_ADDRESS, 
+        target: STNERO_ADDRESS, 
         abi: EasyStakeVaultABI,          
         value: txValue, 
         params: params,    

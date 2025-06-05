@@ -8,14 +8,13 @@ import { useEthersSigner, useConfig, useScreenManager } from '@/hooks'
 import { OperationData, UserOperation, UserOperationResultInterface, screens } from '@/types'
 import { PAYMASTER_MODE } from '@/types/Paymaster'
 import { useBuilderWithPaymaster } from '@/utils'
+import { STNERO_ADDRESS } from '@/constants/contracts'
 
 // Add ERC20 ABI for approval
 const ERC20_ABI = [
   'function approve(address spender, uint256 amount) external returns (bool)',
   'function allowance(address owner, address spender) external view returns (uint256)'
 ];
-
-const EASYSTAKE_VAULT_ADDRESS = '0x577937D20415183c7C50F5773A0C02D5B8aa344c';
 
 export const useSendUserOp = () => {
   const { navigateTo, currentScreen } = useScreenManager()
@@ -126,7 +125,7 @@ export const useSendUserOp = () => {
 
     try {
       const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-      const currentAllowance = await tokenContract.allowance(await signer.getAddress(), EASYSTAKE_VAULT_ADDRESS);
+      const currentAllowance = await tokenContract.allowance(await signer.getAddress(), STNERO_ADDRESS);
       
       if (currentAllowance.gte(amount)) {
         console.log('[useSendUserOp] approveERC20Token: Sufficient allowance already exists');
@@ -134,7 +133,7 @@ export const useSendUserOp = () => {
       }
 
       console.log('[useSendUserOp] approveERC20Token: Approving token spend...');
-      const approveTx = await tokenContract.approve(EASYSTAKE_VAULT_ADDRESS, amount);
+      const approveTx = await tokenContract.approve(STNERO_ADDRESS, amount);
       console.log('[useSendUserOp] approveERC20Token: Approval transaction sent:', approveTx.hash);
       
       await approveTx.wait();

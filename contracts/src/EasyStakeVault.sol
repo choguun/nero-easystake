@@ -322,18 +322,8 @@ contract EasyStakeVault is ERC4626, Ownable, ReentrancyGuard {
     }
 
     // --- Internal Helper Overrides (If needed for advanced logic) ---
-
-    /**
-     * @dev Override _convertToShares to establish a 1:1 ratio on the first deposit,
-     * assuming asset and shares have the same decimals.
-     */
-    function _convertToShares(uint256 assets, Math.Rounding /*round*/) internal view override returns (uint256 shares) {
-        shares = previewDeposit(assets);
-    }
-
-    function _convertToAssets(uint256 shares, Math.Rounding /*round*/) internal view override returns (uint256 assets) {
-        // ... existing code ...
-    }
+    // No custom overrides active. Relying on base ERC4626 implementations for share/asset conversions.
+    // Problematic _convertToShares override that caused recursion has been removed.
 
 }
 

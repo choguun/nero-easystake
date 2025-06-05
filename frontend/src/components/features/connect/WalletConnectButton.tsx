@@ -5,6 +5,7 @@ const WalletConnectRoundedButton: React.FC<WalletConnectRoundedButtonProps> = ({
   onClick,
   AAaddress,
   isConnected,
+  aaNeroBalance,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -31,18 +32,23 @@ const WalletConnectRoundedButton: React.FC<WalletConnectRoundedButtonProps> = ({
       return 'CONNECT';
     }
     return (
-      <div className="flex items-center space-x-2">
-        <span>{`${AAaddress.slice(0, 6)}...${AAaddress.slice(-2)}`}</span>
-        <span 
-          onClick={handleCopyAddress} 
-          onKeyDown={handleCopyKeyDown}
-          role="button"
-          tabIndex={0}
-          className="p-1 hover:bg-gray-700 rounded text-xs cursor-pointer"
-          title="Copy address"
-        >
-          {isCopied ? 'Copied!' : 'Copy'}
-        </span>
+      <div className="flex flex-col items-center text-xs">
+        <div className="flex items-center space-x-1">
+          <span>{`${AAaddress.slice(0, 6)}...${AAaddress.slice(-2)}`}</span>
+          <span 
+            onClick={handleCopyAddress} 
+            onKeyDown={handleCopyKeyDown}
+            role="button"
+            tabIndex={0}
+            className="p-1 hover:bg-gray-700 rounded text-xs cursor-pointer"
+            title="Copy address"
+          >
+            {isCopied ? 'Copied!' : 'Copy'}
+          </span>
+        </div>
+        {aaNeroBalance && (
+          <span className="text-gray-400 mt-0.5">{aaNeroBalance}</span>
+        )}
       </div>
     );
   };
@@ -50,10 +56,10 @@ const WalletConnectRoundedButton: React.FC<WalletConnectRoundedButtonProps> = ({
   return (
     <button
       onClick={onClick}
-      className='px-4 py-3 bg-black text-white rounded-full 
+      className='px-4 py-2 bg-black text-white rounded-full 
                  font-medium hover:bg-black/40 
                  transition-all duration-300 flex items-center justify-center
-                 fixed right-0 min-w-[150px]'
+                 fixed right-0 min-w-[160px] min-h-[50px]'
     >
       {getButtonContent()}
     </button>

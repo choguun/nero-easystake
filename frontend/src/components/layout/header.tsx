@@ -92,6 +92,30 @@ export function Header() {
                 >
                   Stake
                 </Link>
+                <Link
+              href="/swap"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer"
+            >
+              Swap
+            </Link>
+            <Link
+              href="/liquidity"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer"
+            >
+              Liquidity
+            </Link>
+            <Link
+              href="/rewards"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium flex items-center gap-1 cursor-pointer"
+            >
+              <Award className="h-4 w-4" /> Rewards
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-medium cursor-pointer"
+            >
+              Leaderboard
+            </Link>
                {/* <Link
                 href="/#account-abstraction"
                 className="transition-colors hover:text-foreground text-foreground/80 py-2"

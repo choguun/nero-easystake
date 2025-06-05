@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../src/interfaces/IUniswapV2Router02.sol";
 import "../src/interfaces/IUniswapV2Factory.sol";
 import "../src/interfaces/IUniswapV2Pair.sol"; // Added for reading pair tokens
-import "../src/interfaces/IERC20.sol";
+// import "../src/interfaces/IERC20.sol"; // Removed to resolve conflict, OZ version will be used via other imports like UniswapV2Pair.sol
 import "../src/interfaces/IWETH.sol"; // Keep IWETH import for deposit
 import "../src/libraries/UniswapV2Library.sol";
 import "../src/UniswapV2Pair.sol"; // Added import for UniswapV2Pair

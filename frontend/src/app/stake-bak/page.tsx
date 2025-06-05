@@ -9,9 +9,10 @@ import { SendUserOpContext } from '@/contexts'
 import { CustomConnectButton } from '@/components/features/connect';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
+import { STNERO_ADDRESS } from '@/constants/contracts';
+
 const TESTNET_RPC_URL = 'https://rpc-testnet.nerochain.io';
 
-const EASYSTAKE_VAULT_ADDRESS = '0x163EBB40a546Fd33d18dCeC56c0650fF7fECA1c7';
 const EasyStakeVaultABI = STAKING_ABI;
 const VAULT_DECIMALS = 18;
 
@@ -79,10 +80,10 @@ const StakePage = () => {
 
   const fetchShareBalance = useCallback(async () => {
     const provider = getProvider();
-    if (AAaddress && AAaddress !== '0x' && provider && EASYSTAKE_VAULT_ADDRESS) {
+    if (AAaddress && AAaddress !== '0x' && provider && STNERO_ADDRESS) {
       setIsLoadingShareBalance(true)
       try {
-        const vaultContract = new Contract(EASYSTAKE_VAULT_ADDRESS, EasyStakeVaultABI, provider)
+        const vaultContract = new Contract(STNERO_ADDRESS, EasyStakeVaultABI, provider)
         const balance = await vaultContract.balanceOf(AAaddress)
         setShareBalance(ethersUtils.formatUnits(balance, VAULT_DECIMALS))
       } catch (error) {
@@ -164,7 +165,7 @@ const StakePage = () => {
       alert('Please connect your wallet and ensure provider is available.');
       return false;
     }
-    if (!EASYSTAKE_VAULT_ADDRESS) {
+    if (!STNERO_ADDRESS) {
       alert('Staking contract address is not configured.');
       return false;
     }
@@ -252,7 +253,7 @@ const StakePage = () => {
       console.log('[StakePage] Stake: Calling execute with amount:', stakeAmount);
       finalStakeResult = await execute({
         functionName: 'depositEth',
-        target: EASYSTAKE_VAULT_ADDRESS,
+        target: STNERO_ADDRESS,
         abi: EasyStakeVaultABI,
         value: amountToStake,
         params: [],
@@ -307,7 +308,7 @@ const StakePage = () => {
       console.log('[StakePage] Redeem: Calling execute with shares:', redeemAmount);
       finalResult = await execute({
         functionName: 'redeemEth',
-        target: EASYSTAKE_VAULT_ADDRESS,
+        target: STNERO_ADDRESS,
         abi: EasyStakeVaultABI,
         value: '0',
         params: [sharesToRedeem, AAaddress],
@@ -353,7 +354,7 @@ const StakePage = () => {
       const amountToSend = ethers.utils.parseUnits(sendAmount, VAULT_DECIMALS);
       const result = await execute({
         functionName: 'transfer',
-        target: EASYSTAKE_VAULT_ADDRESS,
+        target: STNERO_ADDRESS,
         abi: EasyStakeVaultABI,
         value: '0',
         params: [sendToAddress, amountToSend],

@@ -28,6 +28,7 @@ export interface WalletConnectRoundedButtonProps extends ClickableComponentProps
   onConnect?: () => void
   AAaddress: string
   isConnected: boolean
+  aaNeroBalance?: string | null
 }
 
 export interface ToggleWalletVisibilityButtonProps {

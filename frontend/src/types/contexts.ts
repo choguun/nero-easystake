@@ -148,6 +148,7 @@ export interface SignatureContextProps {
   isConnected: boolean
   signer?: Signer
   simpleAccountInstance?: SimpleAccount
+  aaNeroBalance?: string | null
   signMessage: (pm?: 'token' | 'verifying' | 'legacy-token') => Promise<void>
   resetSignature: () => void
   getPaymasterMiddleware: (

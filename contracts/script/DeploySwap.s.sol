@@ -25,7 +25,7 @@ contract DeploySwap is Script {
         UniswapV2Factory factory;
         if (existingFactoryAddress == address(0)) {
             console.log("Deploying new UniswapV2Factory (feeToSetter will be %s)...", deployerAddress);
-            factory = new UniswapV2Factory();
+        factory = new UniswapV2Factory();
             deployedFactoryAddress = address(factory);
             console.log("New UniswapV2Factory deployed to:", deployedFactoryAddress);
         } else {
@@ -55,8 +55,8 @@ contract DeploySwap is Script {
         if (pairAddress == address(0)) {
             console.log("WNERO/stNero pair does not exist on factory. Creating...");
             pairAddress = factory.createPair(WNERO_ADDRESS, STNERO_ADDRESS);
-            console.log("WNERO/stNero Pair created at address:", pairAddress);
-            require(pairAddress != address(0), "Pair creation failed");
+        console.log("WNERO/stNero Pair created at address:", pairAddress);
+        require(pairAddress != address(0), "Pair creation failed");
         } else {
             console.log("WNERO/stNero pair already exists at:", pairAddress);
         }

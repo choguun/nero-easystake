@@ -21,10 +21,12 @@ import { useSignature, useSendUserOp, useConfig, usePaymasterContext } from '@/h
 import { SendUserOpContext } from '@/contexts';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-// --- TODO: Replace with your actual deployed addresses and WNERO address ---
-const UNISWAP_V2_ROUTER_ADDRESS = '0x6E74A5a4e4E44498cE1F845d812D5011075f602E'; // From your deployment log
-const WNERO_CONTRACT_ADDRESS = '0x82D1C63b242434386C21bC2649B132CDd4dD3260';    // Provided by user
-const STNERO_CONTRACT_ADDRESS = '0x163EBB40a546Fd33d18dCeC56c0650fF7fECA1c7'; // From your deployment log
+// --- Import addresses from constants contracts.ts ---
+import {
+  UNISWAP_ROUTER_ADDRESS as APP_UNISWAP_ROUTER_ADDRESS, // Alias to avoid naming conflict if any
+  WNERO_ADDRESS as APP_WNERO_ADDRESS,
+  STNERO_ADDRESS as APP_STNERO_ADDRESS
+} from '@/constants/contracts';
 // --- End of addresses ---
 
 // --- ABIs ---
@@ -53,8 +55,8 @@ interface TokenInfo {
   decimals?: number; // Optional now, will be fetched
 }
 
-const INITIAL_WNERO_TOKEN: TokenInfo = { address: WNERO_CONTRACT_ADDRESS }; 
-const INITIAL_STNERO_TOKEN: TokenInfo = { address: STNERO_CONTRACT_ADDRESS };
+const INITIAL_WNERO_TOKEN: TokenInfo = { address: APP_WNERO_ADDRESS }; 
+const INITIAL_STNERO_TOKEN: TokenInfo = { address: APP_STNERO_ADDRESS };
 
 // --- Custom Hooks ---
 // Debounce Hook
@@ -183,8 +185,8 @@ export default function SwapPage() {
   }, [getProvider, tokenMetadata]);
 
   useEffect(() => {
-    fetchTokenMetadata(WNERO_CONTRACT_ADDRESS);
-    fetchTokenMetadata(STNERO_CONTRACT_ADDRESS);
+    fetchTokenMetadata(APP_WNERO_ADDRESS);
+    fetchTokenMetadata(APP_STNERO_ADDRESS);
   }, [fetchTokenMetadata]);
 
   // Fetch balances
@@ -249,14 +251,19 @@ export default function SwapPage() {
       // (either successfully fetched or the fallback 18 if fetchTokenMetadata failed for a token)
       setIsFetchingEstimate(true);
       try {
-        const routerContract = new ethers.Contract(UNISWAP_V2_ROUTER_ADDRESS, UNISWAP_V2_ROUTER_ABI, currentProvider);
+        const routerContract = new ethers.Contract(APP_UNISWAP_ROUTER_ADDRESS, UNISWAP_V2_ROUTER_ABI, currentProvider);
         
         console.log("[SwapPage] Parsing amountIn with:", { 
           amount: debouncedFromAmount,
           decimals: fromTokenInfo.decimals 
         });
         const amountIn = ethers.utils.parseUnits(debouncedFromAmount, fromTokenInfo.decimals);
-        const path = [fromTokenInfo.address, toTokenInfo.address];
+        let path: string[] = [fromTokenInfo.address, toTokenInfo.address];
+        if (fromTokenInfo.address === APP_WNERO_ADDRESS && toTokenInfo.address === APP_STNERO_ADDRESS) {
+          path = [APP_WNERO_ADDRESS, APP_STNERO_ADDRESS];
+        } else if (fromTokenInfo.address === APP_STNERO_ADDRESS && toTokenInfo.address === APP_WNERO_ADDRESS) {
+          path = [APP_STNERO_ADDRESS, APP_WNERO_ADDRESS];
+        }
         console.log("[SwapPage] Calling getAmountsOut with:", { 
           amountInFormatted: amountIn.toString(), 
           path, 
@@ -282,7 +289,7 @@ export default function SwapPage() {
         getEstimate();
     } else {
         console.log("[SwapPage] useEffect for getEstimate: fromToken or toToken address/decimals missing, clearing estimate.", {fromAddress: fromTokenInfo.address, toAddress: toTokenInfo.address, fromDec: fromTokenInfo.decimals, toDec: toTokenInfo.decimals });
-        setToAmountEstimate(''); 
+      setToAmountEstimate('');
     }
   }, [debouncedFromAmount, fromTokenInfo, toTokenInfo, getProvider, tokenMetadata]);
 
@@ -301,7 +308,7 @@ export default function SwapPage() {
       }
       try {
         const tokenContract = new ethers.Contract(fromTokenInfo.address, ERC20_ABI, currentProvider);
-        const currentAllowance = await tokenContract.allowance(userAddress, UNISWAP_V2_ROUTER_ADDRESS);
+        const currentAllowance = await tokenContract.allowance(userAddress, APP_UNISWAP_ROUTER_ADDRESS);
         setAllowance(currentAllowance);
         const amountInBN = ethers.utils.parseUnits(debouncedFromAmount, fromTokenInfo.decimals);
         setNeedsApproval(currentAllowance.lt(amountInBN));
@@ -316,7 +323,7 @@ export default function SwapPage() {
 
   const handleAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*\.?\d*$/.test(value)) { 
+    if (/^\d*\.?\d*$/.test(value)) {
       setFromAmount(value);
     }
   };
@@ -359,7 +366,7 @@ export default function SwapPage() {
         abi: ERC20_ABI,
         functionName: "approve",
         params: [
-          UNISWAP_V2_ROUTER_ADDRESS,
+          APP_UNISWAP_ROUTER_ADDRESS,
           ethers.constants.MaxUint256,
         ],
         value: BigInt(0),
@@ -420,15 +427,15 @@ export default function SwapPage() {
 
       if (amountOutMin.isNegative() || amountOutMin.isZero()) {
         toast({ title: "Error", description: "Calculated minimum output amount is too low. Try a larger amount or check slippage.", variant: "destructive"});
-        setIsLoading(false);
-        return;
-      }
+      setIsLoading(false);
+      return;
+    }
 
       const path = [fromTokenInfo.address, toTokenInfo.address];
       const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
       
       const userOpPayload = {
-        target: UNISWAP_V2_ROUTER_ADDRESS,
+        target: APP_UNISWAP_ROUTER_ADDRESS,
         abi: UNISWAP_V2_ROUTER_ABI,
         functionName: "swapExactTokensForTokens",
         params: [
@@ -515,7 +522,7 @@ export default function SwapPage() {
                 const currentProvider = getProvider();
                 if (currentProvider && userAddress && userAddress !== '0x' && fromTokenInfo.decimals) {
                     const tokenContract = new ethers.Contract(fromTokenInfo.address, ERC20_ABI, currentProvider);
-                    const newAllowance = await tokenContract.allowance(userAddress, UNISWAP_V2_ROUTER_ADDRESS);
+                    const newAllowance = await tokenContract.allowance(userAddress, APP_UNISWAP_ROUTER_ADDRESS);
                     setAllowance(newAllowance);
                     const amountInBN = ethers.utils.parseUnits(debouncedFromAmount || "0", fromTokenInfo.decimals);
                     setNeedsApproval(newAllowance.lt(amountInBN));
@@ -566,10 +573,10 @@ export default function SwapPage() {
       <Card className="shadow-lg w-full max-w-md">
         <CardHeader>
             <div className="flex justify-between items-center">
-                <CardTitle className="text-2xl flex items-center gap-2">
-                    <Repeat2 className="h-6 w-6 text-primary" />
-                    Swap Tokens
-                </CardTitle>
+          <CardTitle className="text-2xl flex items-center gap-2">
+            <Repeat2 className="h-6 w-6 text-primary" />
+            Swap Tokens
+          </CardTitle>
                 {/* <ConnectButton showBalance={false} accountStatus="address" /> */}
             </div>
           <CardDescription className="flex items-center justify-between">
@@ -634,9 +641,9 @@ export default function SwapPage() {
           </div>
           
           {toAmountEstimate && parseFloat(fromAmount) > 0 && !isFetchingEstimate && (
-            <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
               1 {fromTokenInfo.symbol} ≈ {(parseFloat(toAmountEstimate) / parseFloat(fromAmount)).toFixed(4)} {toTokenInfo.symbol}
-            </p>
+          </p>
           )}
           {isFetchingEstimate && <p className="text-xs text-muted-foreground text-center">Fetching best price...</p>}
 
