@@ -27,7 +27,7 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
     AAaddress: aaAddressFromHook,
     aaNeroBalance,
     signer: eoaSignerDetails,
-    initiateSiweAndAAConnection,
+    connectAA,
     resetSignature,
     loading: sigContextLoading,
   } = useSignature()
@@ -85,7 +85,7 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
         <WalletConnectSidebar 
             onClick={async () => {
                 setIsConnectingAA(true);
-                await initiateSiweAndAAConnection();
+                await connectAA();
                 setIsConnectingAA(false);
             }}
             variant='Connect AA Wallet'
@@ -128,27 +128,24 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
           
           const displayAddress = aaAddressFromHook && aaAddressFromHook !== '0x' ? aaAddressFromHook : account?.address;
           const displayBalance = aaAddressFromHook && aaAddressFromHook !== '0x' ? aaNeroBalance : undefined;
-          const effectiveIsConnected = aaAddressFromHook && aaAddressFromHook !== '0x' ? true : rkConnected;
+          const isAaConnected = aaAddressFromHook && aaAddressFromHook !== '0x';
 
           if (mode === 'button') {
-            if (effectiveIsConnected) {
+            if (rkConnected && isAaConnected) {
               return (
                 <div className="flex flex-col items-end space-y-1">
                   <WalletConnectRoundedButton
                     onClick={() => {
-                        if (aaAddressFromHook && aaAddressFromHook !== '0x') {
+                        if (isAaConnected) {
                             setIsWalletPanel(!isWalletPanel);
-                        } else if (rkConnected && !isConnectingAA) {
-                            setIsConnectingAA(true);
-                            initiateSiweAndAAConnection().finally(() => setIsConnectingAA(false));
-                        }
+                        } 
                       }}
                     AAaddress={displayAddress as string}
-                    isConnected={effectiveIsConnected}
+                    isConnected={isAaConnected}
                     aaNeroBalance={displayBalance}
                     isLoading={isConnectingAA || sigContextLoading}
                   />
-                  {aaAddressFromHook && aaAddressFromHook !== '0x' && (
+                  {isAaConnected && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -169,12 +166,32 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                 </div>
               )
             }
+            if (rkConnected && !isAaConnected) {
+              return (
+                <div className="flex flex-col items-end space-y-1">
+                  <WalletConnectRoundedButton
+                    onClick={() => {
+                        if (!isConnectingAA) {
+                            setIsConnectingAA(true);
+                            connectAA().finally(() => setIsConnectingAA(false));
+                        }
+                      }}
+                    AAaddress={"Connect AA Wallet"}
+                    isConnected={false}
+                    isLoading={isConnectingAA || sigContextLoading}
+                  />
+                  <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      Nero Faucet <ExternalLink size={12} />
+                  </Link>
+                   {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
+                </div>
+              )
+            }
             return (
               <WalletConnectRoundedButton
                 onClick={openConnectModal} 
-                AAaddress={aaAddressFromHook}
+                AAaddress={"Connect Wallet"}
                 isConnected={false}
-                aaNeroBalance={aaNeroBalance}
                 isLoading={isConnectingAA || sigContextLoading}
               />
             )
@@ -200,12 +217,12 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     <div className="flex flex-col items-end space-y-1">
                         <WalletConnectSidebar 
                             onClick={async () => {
-                                if (typeof initiateSiweAndAAConnection === 'function') {
+                                if (typeof connectAA === 'function') {
                                     setIsConnectingAA(true);
-                                    await initiateSiweAndAAConnection();
+                                    await connectAA();
                                     setIsConnectingAA(false);
                                 } else {
-                                    console.error("initiateSiweAndAAConnection is not a function")
+                                    console.error("connectAA is not a function")
                                 }
                             }}
                             variant='Connect AA Wallet'

@@ -3,7 +3,8 @@
 import React, { createContext, useCallback, useEffect, useState, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { ethers } from 'ethers'
-import { SiweMessage } from 'siwe'
+// SIWE is no longer needed for this simpler approach
+// import { SiweMessage } from 'siwe'
 import { getPaymaster } from '@/helper/getPaymaster'
 import { SimpleAccount } from '@/helper/simpleAccount'
 import { useEthersSigner, useConfig } from '@/hooks'
@@ -11,7 +12,7 @@ import { SignatureContextProps, ProviderProps } from '@/types'
 
 export const SignatureContext = createContext<SignatureContextProps | undefined>(undefined)
 
-const SIWE_SESSION_KEY_PREFIX = 'siwe_session_signature_'
+// We only need to store the AA address now.
 const AA_ADDRESS_KEY_PREFIX = 'aa_address_for_eoa_'
 
 export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
@@ -69,38 +70,22 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
     setSimpleAccountInstance(undefined)
     setAaNeroBalance(null)
     if (eoaAddress) {
-      localStorage.removeItem(`${SIWE_SESSION_KEY_PREFIX}${eoaAddress}`);
+      // We no longer store a signature, just the AA address.
       localStorage.removeItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`);
-      console.log("[SignatureContext] SIWE session cleared from localStorage for EOA:", eoaAddress);
+      console.log("[SignatureContext] AA session cleared from localStorage for EOA:", eoaAddress);
     }
   }, [eoaAddress])
 
-  const initiateSiweAndAAConnection = useCallback(
+  // This is the new, simpler connection function.
+  const connectAA = useCallback(
     async (pm?: 'token' | 'verifying' | 'legacy-token') => {
-      if (AAaddress && AAaddress !== '0x') {
-        console.log('[SignatureContext] initiateSiweAndAAConnection: AA Address already exists in context, skipping SIWE initiation. AA:', AAaddress);
-        return true;
-      }
-      if (!signer || !eoaAddress || !chain) {
-        console.error('[SignatureContext] initiateSiweAndAAConnection: Signer, EOA address, or chain is not available.');
+      if (!signer || !eoaAddress) {
+        console.error('[SignatureContext] connectAA: Signer or EOA address is not available.');
         return false;
       }
-      console.log('[SignatureContext] initiateSiweAndAAConnection: Starting SIWE + AA setup for EOA:', eoaAddress);
+      console.log('[SignatureContext] connectAA: Initializing AA wallet for EOA:', eoaAddress);
       setLoading(true);
       try {
-        const domain = window.location.host;
-        const origin = window.location.origin;
-        const statement = 'Sign in with Ethereum to the app.';
-        const siweMessage = new SiweMessage({
-          domain,
-          address: eoaAddress,
-          statement,
-          uri: origin,
-          version: '1',
-          chainId: chain.id,
-        });
-        const messageToSign = siweMessage.prepareMessage();
-        const signature = await signer.signMessage(messageToSign);
         const paymaster = pm ? getPaymaster(pm) : undefined;
         const simpleAccount = await SimpleAccount.init(signer, rpcUrl, {
           entryPoint: entryPoint,
@@ -111,14 +96,14 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
         const derivedAAaddress = await simpleAccount.getSender() as `0x${string}`;
         setSimpleAccountInstance(simpleAccount);
         setAAaddress(derivedAAaddress);
-        localStorage.setItem(`${SIWE_SESSION_KEY_PREFIX}${eoaAddress}`, signature);
+        // Save the derived address to localStorage to persist the session.
         localStorage.setItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`, derivedAAaddress);
-        console.log("[SignatureContext] SIWE session stored for EOA:", eoaAddress, "with AA:", derivedAAaddress);
+        console.log("[SignatureContext] AA session stored for EOA:", eoaAddress, "with AA:", derivedAAaddress);
         return true;
       } catch (e) {
-        console.error('[SignatureContext] Error during SIWE + AA Connection:', e);
+        console.error('[SignatureContext] Error during AA wallet connection:', e);
+        // Clean up on failure
         if(eoaAddress) {
-            localStorage.removeItem(`${SIWE_SESSION_KEY_PREFIX}${eoaAddress}`);
             localStorage.removeItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`);
         }
         setAAaddress('0x');
@@ -128,7 +113,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
         setLoading(false);
       }
     },
-    [AAaddress, signer, rpcUrl, bundlerUrl, entryPoint, accountFactory, eoaAddress, chain],
+    [signer, rpcUrl, bundlerUrl, entryPoint, accountFactory, eoaAddress],
   );
   
   useEffect(() => {
@@ -138,10 +123,11 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
     }
   }, [eoaStatus, AAaddress, resetSignature]);
 
+  // Simplified session restoration useEffect
   useEffect(() => {
-    console.log("[SignatureContext] Session restore check. EOA Connected:", isEoaWalletConnected, "Signer:", !!signer);
     if (isEoaWalletConnected && signer && eoaAddress && chain) {
       const storedAaAddress = localStorage.getItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`) as `0x${string}` | null;
+      // If we find an address in storage, we try to restore the session.
       if (storedAaAddress && storedAaAddress !== '0x') {
         console.log("[SignatureContext] Found stored AA session for EOA:", eoaAddress, "with AA:", storedAaAddress);
         setLoading(true);
@@ -151,6 +137,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
           factory: accountFactory,
         }).then(async (saInstance) => {
           const derivedSender = await saInstance.getSender() as `0x${string}`;
+          // We verify that the current signer can derive the same address we have in storage.
           if (derivedSender === storedAaAddress) {
             console.log("[SignatureContext] Restored AA session matches derived AA.");
             setSimpleAccountInstance(saInstance);
@@ -166,13 +153,14 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
           setLoading(false);
         });
       } else {
+        // No address found in storage, so we're not logged into an AA wallet.
         setLoading(false); 
       }
     } else {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEoaWalletConnected, signer, eoaAddress, chain, rpcUrl, bundlerUrl, entryPoint, accountFactory]);
+  }, [isEoaWalletConnected, signer, eoaAddress, chain]);
 
 
   const getPaymasterMiddleware = (pm?: 'token' | 'verifying' | 'legacy-token') => {
@@ -186,10 +174,10 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
     signer,
     simpleAccountInstance,
     aaNeroBalance,
-    initiateSiweAndAAConnection,
+    connectAA, // Export the new simpler function
     resetSignature,
     getPaymasterMiddleware,
-  }), [loading, AAaddress, isConnected, signer, simpleAccountInstance, aaNeroBalance, initiateSiweAndAAConnection, resetSignature]);
+  }), [loading, AAaddress, isConnected, signer, simpleAccountInstance, aaNeroBalance, connectAA, resetSignature]);
 
   return (
     <SignatureContext.Provider value={contextValue}>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -16,8 +15,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Trophy, UserCircle } from 'lucide-react';
+import { Trophy, UserCircle, Wallet } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useSignature } from '@/hooks';
+import { useAccount } from 'wagmi';
 
 // Mock data for the leaderboard
 const leaderboardData = [
@@ -34,6 +35,49 @@ const leaderboardData = [
 ];
 
 export default function LeaderboardPage() {
+  const { isConnected: isAaConnected, loading: sigContextLoading } = useSignature();
+  const { isConnected: isEoaConnected } = useAccount();
+
+  if (sigContextLoading) {
+    return (
+      <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center text-center">
+        <p>Loading session...</p>
+      </div>
+    );
+  }
+
+  if (!isEoaConnected) {
+    return (
+        <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center text-center">
+            <Card className="max-w-md p-8 text-center shadow-lg">
+                <CardHeader>
+                    <Wallet className="mx-auto h-12 w-12 text-primary" />
+                    <CardTitle className="mt-4 text-2xl">Connect Wallet</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">Please connect your wallet to view the leaderboard and manage your account.</p>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
+  if (!isAaConnected) {
+    return (
+        <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center text-center">
+            <Card className="max-w-md p-8 text-center shadow-lg">
+                <CardHeader>
+                    <Wallet className="mx-auto h-12 w-12 text-primary" />
+                    <CardTitle className="mt-4 text-2xl">Connect Your Smart Account</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">Your wallet is connected. Please now connect your Smart Account wallet using the button in the header to proceed.</p>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
   return (
     <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center px-4 py-12 md:px-6">
       <Card className="shadow-lg w-full max-w-3xl">
