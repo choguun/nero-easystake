@@ -117,11 +117,17 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
   );
   
   useEffect(() => {
+    // Do not reset the session if we are in the initial loading/restoration phase.
+    // The session restoration logic is responsible for cleanup if it fails.
+    if (loading) {
+      return;
+    }
+
     if (eoaStatus === 'disconnected' && AAaddress !== '0x') {
-        console.log("[SignatureContext] EOA status is 'disconnected', resetting AA/SIWE session.");
+        console.log("[SignatureContext] EOA status is 'disconnected', resetting AA session.");
         resetSignature();
     }
-  }, [eoaStatus, AAaddress, resetSignature]);
+  }, [eoaStatus, AAaddress, resetSignature, loading]);
 
   // Simplified session restoration useEffect
   useEffect(() => {
