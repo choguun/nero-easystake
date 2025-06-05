@@ -569,7 +569,7 @@ export default function SwapPage() {
 
 
   return (
-    <div className="container mx-auto flex min-h-[calc(100dvh)-theme(spacing.28)] flex-col items-center justify-center px-4 md:px-6">
+    <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center px-4 md:px-6">
       <Card className="shadow-lg w-full max-w-md">
         <CardHeader>
             <div className="flex justify-between items-center">
