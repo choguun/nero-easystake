@@ -136,14 +136,14 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
           }, [rkConnected, account?.address, resetSignature]);
 
           useEffect(() => {
-            if (rkConnected && account?.address && (aaAddressFromHook === '0x' || !aaAddressFromHook) && !isConnectingAA && !sigContextLoading) {
-              console.log("[CustomConnectButton] EOA connected, AA not found or is 0x. Attempting SIWE + AA connection.");
+            if (rkConnected && account?.address && eoaSignerDetails && (aaAddressFromHook === '0x' || !aaAddressFromHook) && !isConnectingAA && !sigContextLoading) {
+              console.log("[CustomConnectButton] EOA connected, AA not found or is 0x, and signer is available. Attempting SIWE + AA connection.");
               setIsConnectingAA(true);
               initiateSiweAndAAConnection().finally(() => {
                 setIsConnectingAA(false);
               });
             }
-          }, [rkConnected, account?.address, aaAddressFromHook, sigContextLoading]);
+          }, [rkConnected, account?.address, aaAddressFromHook, sigContextLoading, eoaSignerDetails, initiateSiweAndAAConnection]);
           
           if (!rkReady) {
             return <WalletConnectRoundedButton onClick={openConnectModal} isConnected={false} AAaddress={'0x'} disabled={sigContextLoading} isLoading={sigContextLoading}/>;
