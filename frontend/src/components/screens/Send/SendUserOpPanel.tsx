@@ -7,7 +7,7 @@ import { CommonContainerPanel } from '@/components/ui/layout'
 import { BottomNavigation, HeaderNavigation } from '@/components/ui/navigation'
 import { SendUserOpContext } from '@/contexts'
 import { useScreenManager, usePaymasterContext, useSendUserOp } from '@/hooks'
-import { screens } from '@/types'
+import { screens, UserOperationResultInterface } from '@/types'
 
 const SendUserOpPanel: React.FC = () => {
   const { navigateTo } = useScreenManager()
@@ -46,17 +46,24 @@ const SendUserOpPanel: React.FC = () => {
       return
     }
     setIsSending(true);
+    let operationSuccessful = false;
     try {
-      await sendUserOp(
+      const result: UserOperationResultInterface = await sendUserOp(
         paymaster, 
         selectedToken ?? undefined, 
         selectedMode?.value
-      )
+      );
+      if (result && result.result === true) {
+        operationSuccessful = true;
+      }
     } catch (error) {
       console.error('[SendUserOpPanel] Error calling sendUserOp from panel:', error)
     } finally {
       setIsSending(false);
-      // Panel should remain open for result/error display from useSendUserOp hook
+      if (operationSuccessful) {
+        console.log('[SendUserOpPanel] Operation successful, closing panel.');
+        handleClosePanel();
+      }
     }
   }
 
