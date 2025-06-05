@@ -22,6 +22,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
   const [simpleAccountInstance, setSimpleAccountInstance] = useState<SimpleAccount | undefined>(
     undefined,
   )
+  const [sessionEoaAddress, setSessionEoaAddress] = useState<`0x${string}` | null>(null);
   const [aaNeroBalance, setAaNeroBalance] = useState<string | null>(null)
   const signer = useEthersSigner()
   const { address: eoaAddress, isConnected: isEoaWalletConnected, chain, status: eoaStatus } = useAccount()
@@ -64,17 +65,18 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
   }, [isConnected, fetchAANeroBalance]);
 
   const resetSignature = useCallback(() => {
-    console.log("[SignatureContext] resetSignature called. Current EOA:", eoaAddress);
+    // Use the sessionEoaAddress from state, which is more stable than the hook's value during transitions.
+    console.log("[SignatureContext] resetSignature called. EOA from state:", sessionEoaAddress);
     setLoading(false) 
     setAAaddress('0x')
     setSimpleAccountInstance(undefined)
     setAaNeroBalance(null)
-    if (eoaAddress) {
-      // We no longer store a signature, just the AA address.
-      localStorage.removeItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`);
-      console.log("[SignatureContext] AA session cleared from localStorage for EOA:", eoaAddress);
+    if (sessionEoaAddress) {
+      localStorage.removeItem(`${AA_ADDRESS_KEY_PREFIX}${sessionEoaAddress}`);
+      console.log("[SignatureContext] AA session cleared from localStorage for EOA:", sessionEoaAddress);
     }
-  }, [eoaAddress])
+    setSessionEoaAddress(null); // Clear the session EOA address
+  }, [sessionEoaAddress])
 
   // This is the new, simpler connection function.
   const connectAA = useCallback(
@@ -98,6 +100,8 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
         setAAaddress(derivedAAaddress);
         // Save the derived address to localStorage to persist the session.
         localStorage.setItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`, derivedAAaddress);
+        // Also save the EOA that created this session to our state.
+        setSessionEoaAddress(eoaAddress);
         console.log("[SignatureContext] AA session stored for EOA:", eoaAddress, "with AA:", derivedAAaddress);
         return true;
       } catch (e) {
@@ -148,6 +152,8 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
             console.log("[SignatureContext] Restored AA session matches derived AA.");
             setSimpleAccountInstance(saInstance);
             setAAaddress(derivedSender);
+            // When restoring a session, also restore the EOA address that owns it.
+            setSessionEoaAddress(eoaAddress);
           } else {
             console.warn("[SignatureContext] Stored AA address mismatch. Clearing stored session.");
             resetSignature();
