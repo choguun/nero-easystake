@@ -23,7 +23,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
   )
   const [aaNeroBalance, setAaNeroBalance] = useState<string | null>(null)
   const signer = useEthersSigner()
-  const { address: eoaAddress, isConnected: isEoaWalletConnected, chain } = useAccount()
+  const { address: eoaAddress, isConnected: isEoaWalletConnected, chain, status: eoaStatus } = useAccount()
   const isConnected = AAaddress !== '0x' && isEoaWalletConnected
 
   const getProvider = useCallback(() => {
@@ -132,11 +132,11 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
   );
   
   useEffect(() => {
-    if (!isEoaWalletConnected && AAaddress !== '0x') {
-        console.log("[SignatureContext] EOA disconnected, resetting AA/SIWE session.");
+    if (eoaStatus === 'disconnected' && AAaddress !== '0x') {
+        console.log("[SignatureContext] EOA status is 'disconnected', resetting AA/SIWE session.");
         resetSignature();
     }
-  }, [isEoaWalletConnected, AAaddress, resetSignature]);
+  }, [eoaStatus, AAaddress, resetSignature]);
 
   useEffect(() => {
     console.log("[SignatureContext] Session restore check. EOA Connected:", isEoaWalletConnected, "Signer:", !!signer);
