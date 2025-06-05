@@ -120,28 +120,9 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
     [signer, rpcUrl, bundlerUrl, entryPoint, accountFactory, eoaAddress],
   );
   
-  useEffect(() => {
-    // This effect handles genuine EOA disconnections while ignoring temporary status flickers during page navigation.
-    let disconnectionTimer: NodeJS.Timeout;
-
-    if (eoaStatus === 'disconnected') {
-      // When the wallet status becomes 'disconnected', we don't act immediately.
-      // We set a timer. This handles the case where the status flickers during a page change.
-      console.log("[SignatureContext] Wallet status is 'disconnected'. Starting timer to confirm disconnection...");
-      disconnectionTimer = setTimeout(() => {
-        if (AAaddress !== '0x') {
-          console.log("[SignatureContext] Disconnection confirmed after delay. Resetting session.");
-          resetSignature();
-        }
-      }, 1000); // Wait 1000ms to confirm it's not just a flicker.
-    }
-
-    // If the status changes from 'disconnected' to something else (e.g., 'connected' after a flicker),
-    // this cleanup function will run before the effect runs again, clearing the timer.
-    return () => {
-      clearTimeout(disconnectionTimer);
-    };
-  }, [eoaStatus, AAaddress, resetSignature]);
+  // The automatic disconnection logic has been removed. 
+  // The AA session lifecycle is now tied directly to the EOA's connected status,
+  // which is handled by the session restoration effect below.
 
   // Simplified session restoration useEffect
   useEffect(() => {
