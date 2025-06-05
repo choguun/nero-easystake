@@ -29,6 +29,7 @@ export interface WalletConnectRoundedButtonProps extends ClickableComponentProps
   AAaddress: string
   isConnected: boolean
   aaNeroBalance?: string | null
+  isLoading?: boolean
 }
 
 export interface ToggleWalletVisibilityButtonProps {
@@ -40,8 +41,9 @@ export interface ToggleWalletVisibilityButtonProps {
 }
 
 export interface WalletConnectSidebarProps {
-  variant: 'Connect' | 'Contact'
+  variant: 'Connect' | 'Contact' | 'Connect AA Wallet'
   onClick?: () => void
+  disabled?: boolean
 }
 
 // ===== CommonUI =====

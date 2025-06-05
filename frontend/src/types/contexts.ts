@@ -149,7 +149,7 @@ export interface SignatureContextProps {
   signer?: Signer
   simpleAccountInstance?: SimpleAccount
   aaNeroBalance?: string | null
-  signMessage: (pm?: 'token' | 'verifying' | 'legacy-token') => Promise<void>
+  initiateSiweAndAAConnection: (pm?: 'token' | 'verifying' | 'legacy-token') => Promise<boolean | undefined>
   resetSignature: () => void
   getPaymasterMiddleware: (
     pm?: 'token' | 'verifying' | 'legacy-token',

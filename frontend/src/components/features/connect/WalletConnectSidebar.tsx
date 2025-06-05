@@ -1,29 +1,46 @@
 import React from 'react'
-import { CiPower } from 'react-icons/ci'
+import { CiPower, CiLink } from 'react-icons/ci'
 import NEROIcon from '@/assets/NERO-icon.png'
 import { WalletConnectSidebarProps } from '@/types'
 
-const WalletConnectButton: React.FC<WalletConnectSidebarProps> = ({ onClick }) => {
+const WalletConnectSidebar: React.FC<WalletConnectSidebarProps> = ({ 
+  variant, 
+  onClick, 
+  disabled 
+}) => {
+  let buttonContent = <CiPower size={24} />;
+  let buttonTitle = "Connect Wallet";
+
+  if (variant === 'Connect AA Wallet') {
+    buttonContent = <CiLink size={24} />;
+    buttonTitle = "Connect AA Wallet";
+  } else if (variant === 'Contact') {
+    buttonTitle = "Contact Support";
+  }
+
   return (
     <div
-      className={`w-12 'h-[100px]' bg-black/30 backdrop-blur-sm rounded-lg flex flex-col items-center transition-all duration-300`}
+      className={`w-12 'h-[100px]' bg-black/30 backdrop-blur-sm rounded-lg flex flex-col items-center transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <div className='flex-1 flex flex-col items-center gap-6 pt-4'>
         <div className='w-8 h-8'>
-          <img src={NEROIcon} alt='neo' className='w-full h-full' />
+          <img src={NEROIcon.src} alt='Nero Logo' className='w-full h-full' />
         </div>
       </div>
 
       <div className='pb-4 flex flex-col gap-4 pt-3'>
         <button
           onClick={onClick}
-          className='w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-text-tertiary transition-colors'
+          disabled={disabled}
+          title={buttonTitle}
+          aria-label={buttonTitle}
+          className={`w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-text-tertiary transition-colors ${disabled ? 'pointer-events-none' : 'hover:text-primary'}`}
         >
-          <CiPower size={24} />
+          {buttonContent}
         </button>
       </div>
     </div>
   )
 }
 
-export default WalletConnectButton
+export default WalletConnectSidebar

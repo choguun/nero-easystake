@@ -23,7 +23,14 @@ const FAUCET_URL = "https://app.testnet.nerochain.io/faucet";
 
 const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
   const { isWalletPanel, setIsWalletPanel } = useContext(SendUserOpContext)!
-  const { AAaddress: aaAddressFromHook, aaNeroBalance, signer: eoaSignerDetails } = useSignature()
+  const {
+    AAaddress: aaAddressFromHook,
+    aaNeroBalance,
+    signer: eoaSignerDetails,
+    initiateSiweAndAAConnection,
+    resetSignature,
+    loading: sigContextLoading,
+  } = useSignature()
   // entryPointAddress from useConfig is no longer needed for direct transfer
   // const { entryPoint: entryPointAddress } = useConfig() 
   const { toast } = useToast();
@@ -32,66 +39,53 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
   const [currentEoaAddress, setCurrentEoaAddress] = useState<string | null>(null)
   const [isFunding, setIsFunding] = useState(false);
   const [fundingStatus, setFundingStatus] = useState<string>('');
+  const [isConnectingAA, setIsConnectingAA] = useState(false);
 
-  const getAASessionLocalStorageKey = (eoaAddress: string): string => {
-    return `siwe_aa_session_for_${eoaAddress}`
-  }
+  const getAAKeyForEoa = (eoa: string) => `aa_address_for_${eoa}_custom_connect`;
 
   useEffect(() => {
     if (eoaIsConnected && currentEoaAddress) {
       if (aaAddressFromHook && aaAddressFromHook !== '0x') {
-        localStorage.setItem(getAASessionLocalStorageKey(currentEoaAddress), aaAddressFromHook)
+        localStorage.setItem(getAAKeyForEoa(currentEoaAddress), aaAddressFromHook)
       } else {
-        localStorage.removeItem(getAASessionLocalStorageKey(currentEoaAddress))
+        if (localStorage.getItem(getAAKeyForEoa(currentEoaAddress))) {
+           localStorage.removeItem(getAAKeyForEoa(currentEoaAddress))
+        }
       }
     }
-  }, [eoaIsConnected, currentEoaAddress, aaAddressFromHook])
+    if (!eoaIsConnected && currentEoaAddress) {
+        localStorage.removeItem(getAAKeyForEoa(currentEoaAddress));
+    }
+  }, [eoaIsConnected, currentEoaAddress, aaAddressFromHook]);
 
   useEffect(() => {
     if (!eoaIsConnected) {
       setIsWalletPanel(false)
     }
-  }, [eoaIsConnected, setIsWalletPanel])
+  }, [eoaIsConnected, setIsWalletPanel]);
 
   const handleFundAAWallet = async () => {
     if (!eoaSignerDetails) {
       toast({ title: "EOA Wallet Error", description: "EOA signer not available.", variant: "destructive" });
       return;
     }
-    // Removed entryPointAddress check as it's not used for direct transfer
-    // if (!entryPointAddress) {
-    //   toast({ title: "Configuration Error", description: "EntryPoint address is not configured.", variant: "destructive" });
-    //   return;
-    // }
     if (!aaAddressFromHook || aaAddressFromHook === '0x') {
       toast({ title: "AA Wallet Error", description: "AA Wallet address is not determined.", variant: "destructive" });
       return;
     }
-
     setIsFunding(true);
     setFundingStatus(`Funding AA wallet (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO)...`);
-
     try {
-      // const entryPointInterface = new ethers.utils.Interface(ENTRYPOINT_ABI_DEPOSIT_TO); // Not needed for direct transfer
-      // const data = entryPointInterface.encodeFunctionData('depositTo', [aaAddressFromHook]); // Not needed for direct transfer
-
       console.log(`[CustomConnectButton] Sending EOA transaction directly to AA Wallet (${aaAddressFromHook}) with value ${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO`);
-      
       const tx = await eoaSignerDetails.sendTransaction({ 
-        to: aaAddressFromHook, // Send directly to AA address
+        to: aaAddressFromHook, 
         value: EOA_FUNDING_AMOUNT,
-        // data: data, // No data field for direct NERO transfer
       });
-
       setFundingStatus(`Funding tx submitted: ${tx.hash.substring(0,10)}... Waiting...`);
       toast({ title: "Funding Submitted", description: `Transaction ${tx.hash} sent. Waiting for confirmation.`});
       await tx.wait(1); 
-
       setFundingStatus(`AA Wallet funding successful! Tx: ${tx.hash.substring(0,10)}...`);
       toast({ title: "Funding Successful", description: `AA Wallet funded successfully. Tx: ${tx.hash}`});
-      // Optionally, trigger a refresh of AA NERO balance here 
-      // For example, if useSignature provides a refresh function:
-      // if (typeof refreshAaNeroBalance === 'function') refreshAaNeroBalance();
     } catch (error: any) {
       console.error('[CustomConnectButton] EOA Funding error:', error);
       const errorMessage = error.reason || error.message || 'Unknown funding error';
@@ -102,52 +96,84 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
     }
   };
 
-  const renderButton = (openConnectModal: () => void) => (
-    <WalletConnectSidebar onClick={openConnectModal} variant='Connect' />
-  )
+  const renderButton = (openConnectModal: () => void, rkAccount?: any) => {
+    if (rkAccount && (aaAddressFromHook === '0x' || !aaAddressFromHook) && !isConnectingAA && !sigContextLoading) {
+      return (
+        <WalletConnectSidebar 
+            onClick={async () => {
+                setIsConnectingAA(true);
+                await initiateSiweAndAAConnection();
+                setIsConnectingAA(false);
+            }}
+            variant='Connect AA Wallet'
+            disabled={isConnectingAA || sigContextLoading}
+         />
+      );
+    }
+    return <WalletConnectSidebar onClick={openConnectModal} variant='Connect' disabled={isConnectingAA || sigContextLoading} />;
+  };
 
   return (
     <div className='inline-flex flex-col space-y-2 items-end'>
       <RainbowConnectButton.Custom>
         {({ account, chain, openChainModal, openConnectModal, authenticationStatus, mounted }) => {
-          const rkReady = mounted && authenticationStatus !== 'loading'
+          const rkReady = mounted && authenticationStatus !== 'loading' && !sigContextLoading;
 
           const rkConnected = Boolean(
             rkReady &&
               account &&
               chain &&
               (!authenticationStatus || authenticationStatus === 'authenticated'),
-          )
+          );
 
-          // Update EOA connection state and address
           useEffect(() => {
             setEoaIsConnected(rkConnected);
             if (rkConnected && account?.address) {
               setCurrentEoaAddress(account.address);
             } else if (!rkConnected) {
-              if (currentEoaAddress) {
-                  localStorage.removeItem(getAASessionLocalStorageKey(currentEoaAddress));
-              }
               setCurrentEoaAddress(null);
             }
-          // eslint-disable-next-line react-hooks/exhaustive-deps
-          }, [rkConnected, account?.address]);
+          }, [rkConnected, account?.address, resetSignature]);
+
+          useEffect(() => {
+            if (rkConnected && account?.address && (aaAddressFromHook === '0x' || !aaAddressFromHook) && !isConnectingAA && !sigContextLoading) {
+              console.log("[CustomConnectButton] EOA connected, AA not found or is 0x. Attempting SIWE + AA connection.");
+              setIsConnectingAA(true);
+              initiateSiweAndAAConnection().finally(() => {
+                setIsConnectingAA(false);
+              });
+            }
+          }, [rkConnected, account?.address, aaAddressFromHook, sigContextLoading]);
           
-          if (!rkReady) return null
+          if (!rkReady) {
+            return <WalletConnectRoundedButton onClick={openConnectModal} isConnected={false} AAaddress={'0x'} disabled={sigContextLoading} isLoading={sigContextLoading}/>;
+          }
 
           if (chain?.unsupported) {
             return <WalletConnectSidebar variant='Connect' onClick={openChainModal} />
           }
+          
+          const displayAddress = aaAddressFromHook && aaAddressFromHook !== '0x' ? aaAddressFromHook : account?.address;
+          const displayBalance = aaAddressFromHook && aaAddressFromHook !== '0x' ? aaNeroBalance : undefined;
+          const effectiveIsConnected = aaAddressFromHook && aaAddressFromHook !== '0x' ? true : rkConnected;
 
           if (mode === 'button') {
-            if (rkConnected) {
+            if (effectiveIsConnected) {
               return (
                 <div className="flex flex-col items-end space-y-1">
                   <WalletConnectRoundedButton
-                    onClick={() => setIsWalletPanel(!isWalletPanel)}
-                    AAaddress={aaAddressFromHook}
-                    isConnected={rkConnected}
-                    aaNeroBalance={aaNeroBalance}
+                    onClick={() => {
+                        if (aaAddressFromHook && aaAddressFromHook !== '0x') {
+                            setIsWalletPanel(!isWalletPanel);
+                        } else if (rkConnected && !isConnectingAA) {
+                            setIsConnectingAA(true);
+                            initiateSiweAndAAConnection().finally(() => setIsConnectingAA(false));
+                        }
+                      }}
+                    AAaddress={displayAddress as string}
+                    isConnected={effectiveIsConnected}
+                    aaNeroBalance={displayBalance}
+                    isLoading={isConnectingAA || sigContextLoading}
                   />
                   {aaAddressFromHook && aaAddressFromHook !== '0x' && (
                     <Button 
@@ -160,40 +186,63 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                       {isFunding ? fundingStatus.substring(0,20)+'...' : `Fund AA (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO)`}
                     </Button>
                   )}
-                  <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                    Nero Faucet <ExternalLink size={12} />
-                  </Link>
+                  {rkConnected && (
+                    <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                        Nero Faucet <ExternalLink size={12} />
+                    </Link>
+                  )}
                   {isFunding && fundingStatus && <p className='text-xs text-muted-foreground text-right'>{fundingStatus}</p>}
+                  {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
                 </div>
               )
             }
             return (
               <WalletConnectRoundedButton
-                onClick={openConnectModal}
+                onClick={openConnectModal} 
                 AAaddress={aaAddressFromHook}
-                isConnected={rkConnected}
+                isConnected={false}
                 aaNeroBalance={aaNeroBalance}
+                isLoading={isConnectingAA || sigContextLoading}
               />
             )
           }
 
           if (mode === 'sidebar') {
             if (rkConnected) {
-              return (
-                <div className="flex flex-col items-end space-y-1">
-                  <ToggleWalletVisibilityButton
-                    onClick={() => setIsWalletPanel(!isWalletPanel)}
-                    size={'sm'}
-                    isWalletPanel={isWalletPanel}
-                  />
-                  <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-1">
-                    Nero Faucet <ExternalLink size={12} />
-                  </Link>
-                  {/* TODO: Consider adding fund button for sidebar mode too if needed */}
-                </div>
-              )
+              if (aaAddressFromHook && aaAddressFromHook !== '0x') {
+                return (
+                    <div className="flex flex-col items-end space-y-1">
+                        <ToggleWalletVisibilityButton
+                        onClick={() => setIsWalletPanel(!isWalletPanel)}
+                        size={'sm'}
+                        isWalletPanel={isWalletPanel}
+                        />
+                        <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-1">
+                            Nero Faucet <ExternalLink size={12} />
+                        </Link>
+                    </div>
+                );
+              } else {
+                return (
+                    <div className="flex flex-col items-end space-y-1">
+                        <WalletConnectSidebar 
+                            onClick={async () => {
+                                setIsConnectingAA(true);
+                                await initiateSiweAndAAConnection();
+                                setIsConnectingAA(false);
+                            }}
+                            variant='Connect AA Wallet'
+                            disabled={isConnectingAA || sigContextLoading}
+                        />
+                        <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-1">
+                            Nero Faucet <ExternalLink size={12} />
+                        </Link>
+                        {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
+                    </div>
+                );
+              }
             }
-            return renderButton(openConnectModal)
+            return renderButton(openConnectModal, account)
           }
           return null
         }}
