@@ -126,6 +126,13 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
 
   // Simplified session restoration useEffect
   useEffect(() => {
+    // If a session is already active in the state, we don't need to do anything.
+    // This prevents the restoration logic from re-running unnecessarily on page changes.
+    if (AAaddress && AAaddress !== '0x') {
+      if (loading) setLoading(false); // Ensure loading is false if we bail early.
+      return;
+    }
+
     if (isEoaWalletConnected && signer && eoaAddress && chain) {
       const storedAaAddress = localStorage.getItem(`${AA_ADDRESS_KEY_PREFIX}${eoaAddress}`) as `0x${string}` | null;
       // If we find an address in storage, we try to restore the session.
@@ -161,10 +168,11 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
         setLoading(false); 
       }
     } else {
+      // If conditions aren't met, we are done loading.
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEoaWalletConnected, signer, eoaAddress, chain]);
+  }, [isEoaWalletConnected, signer, eoaAddress, chain, AAaddress]);
 
 
   const getPaymasterMiddleware = (pm?: 'token' | 'verifying' | 'legacy-token') => {
