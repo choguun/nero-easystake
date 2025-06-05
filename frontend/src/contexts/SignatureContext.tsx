@@ -121,17 +121,27 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
   );
   
   useEffect(() => {
-    // Do not reset the session if we are in the initial loading/restoration phase.
-    // The session restoration logic is responsible for cleanup if it fails.
-    if (loading) {
-      return;
+    // This effect handles genuine EOA disconnections while ignoring temporary status flickers during page navigation.
+    let disconnectionTimer: NodeJS.Timeout;
+
+    if (eoaStatus === 'disconnected') {
+      // When the wallet status becomes 'disconnected', we don't act immediately.
+      // We set a timer. This handles the case where the status flickers during a page change.
+      console.log("[SignatureContext] Wallet status is 'disconnected'. Starting timer to confirm disconnection...");
+      disconnectionTimer = setTimeout(() => {
+        if (AAaddress !== '0x') {
+          console.log("[SignatureContext] Disconnection confirmed after delay. Resetting session.");
+          resetSignature();
+        }
+      }, 1000); // Wait 1000ms to confirm it's not just a flicker.
     }
 
-    if (eoaStatus === 'disconnected' && AAaddress !== '0x') {
-        console.log("[SignatureContext] EOA status is 'disconnected', resetting AA session.");
-        resetSignature();
-    }
-  }, [eoaStatus, AAaddress, resetSignature, loading]);
+    // If the status changes from 'disconnected' to something else (e.g., 'connected' after a flicker),
+    // this cleanup function will run before the effect runs again, clearing the timer.
+    return () => {
+      clearTimeout(disconnectionTimer);
+    };
+  }, [eoaStatus, AAaddress, resetSignature]);
 
   // Simplified session restoration useEffect
   useEffect(() => {
@@ -160,6 +170,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
           }
         }).catch(err => {
           console.error("[SignatureContext] Error re-initializing SimpleAccount for session restore:", err);
+          setLoading(false);
           resetSignature();
         }).finally(() => {
           setLoading(false);
