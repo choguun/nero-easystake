@@ -139,9 +139,9 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
             if (rkConnected && account?.address && eoaSignerDetails && (aaAddressFromHook === '0x' || !aaAddressFromHook) && !isConnectingAA && !sigContextLoading) {
               console.log("[CustomConnectButton] EOA connected, AA not found or is 0x, and signer is available. Attempting SIWE + AA connection.");
               setIsConnectingAA(true);
-              initiateSiweAndAAConnection().finally(() => {
-                setIsConnectingAA(false);
-              });
+              // initiateSiweAndAAConnection().finally(() => {
+              //   setIsConnectingAA(false);
+              // });
             }
           }, [rkConnected, account?.address, aaAddressFromHook, sigContextLoading, eoaSignerDetails, initiateSiweAndAAConnection]);
           
@@ -192,7 +192,7 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     </Link>
                   )}
                   {isFunding && fundingStatus && <p className='text-xs text-muted-foreground text-right'>{fundingStatus}</p>}
-                  {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
+                  {/* {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>} */}
                 </div>
               )
             }
