@@ -41,23 +41,6 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
   const [fundingStatus, setFundingStatus] = useState<string>('');
   const [isConnectingAA, setIsConnectingAA] = useState(false);
 
-  const getAAKeyForEoa = (eoa: string) => `aa_address_for_${eoa}_custom_connect`;
-
-  useEffect(() => {
-    if (eoaIsConnected && currentEoaAddress) {
-      if (aaAddressFromHook && aaAddressFromHook !== '0x') {
-        localStorage.setItem(getAAKeyForEoa(currentEoaAddress), aaAddressFromHook)
-      } else {
-        if (localStorage.getItem(getAAKeyForEoa(currentEoaAddress))) {
-           localStorage.removeItem(getAAKeyForEoa(currentEoaAddress))
-        }
-      }
-    }
-    if (!eoaIsConnected && currentEoaAddress) {
-        localStorage.removeItem(getAAKeyForEoa(currentEoaAddress));
-    }
-  }, [eoaIsConnected, currentEoaAddress, aaAddressFromHook]);
-
   useEffect(() => {
     if (!eoaIsConnected) {
       setIsWalletPanel(false)
@@ -135,16 +118,6 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
             }
           }, [rkConnected, account?.address, resetSignature]);
 
-          useEffect(() => {
-            if (rkConnected && account?.address && eoaSignerDetails && (aaAddressFromHook === '0x' || !aaAddressFromHook) && !isConnectingAA && !sigContextLoading) {
-              console.log("[CustomConnectButton] EOA connected, AA not found or is 0x, and signer is available. Attempting SIWE + AA connection.");
-              setIsConnectingAA(true);
-              // initiateSiweAndAAConnection().finally(() => {
-              //   setIsConnectingAA(false);
-              // });
-            }
-          }, [rkConnected, account?.address, aaAddressFromHook, sigContextLoading, eoaSignerDetails, initiateSiweAndAAConnection]);
-          
           if (!rkReady) {
             return <WalletConnectRoundedButton onClick={openConnectModal} isConnected={false} AAaddress={'0x'} disabled={sigContextLoading} isLoading={sigContextLoading}/>;
           }
@@ -192,7 +165,7 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     </Link>
                   )}
                   {isFunding && fundingStatus && <p className='text-xs text-muted-foreground text-right'>{fundingStatus}</p>}
-                  {/* {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>} */}
+                  {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
                 </div>
               )
             }
@@ -227,9 +200,13 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     <div className="flex flex-col items-end space-y-1">
                         <WalletConnectSidebar 
                             onClick={async () => {
-                                setIsConnectingAA(true);
-                                await initiateSiweAndAAConnection();
-                                setIsConnectingAA(false);
+                                if (typeof initiateSiweAndAAConnection === 'function') {
+                                    setIsConnectingAA(true);
+                                    await initiateSiweAndAAConnection();
+                                    setIsConnectingAA(false);
+                                } else {
+                                    console.error("initiateSiweAndAAConnection is not a function")
+                                }
                             }}
                             variant='Connect AA Wallet'
                             disabled={isConnectingAA || sigContextLoading}
