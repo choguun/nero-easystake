@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wallet, ArrowRightLeft, Repeat2 } from 'lucide-react';
+import { Wallet, ArrowRightLeft, Repeat2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSignature, useSendUserOp, useConfig, usePaymasterContext } from '@/hooks';
 import { ethers, utils as ethersUtils, Contract, BigNumberish } from 'ethers';
@@ -28,7 +28,7 @@ export default function StakePage() {
   const [isStakingMode, setIsStakingMode] = useState<boolean>(true);
   const [amount, setAmount] = useState<string>('');
   const { toast } = useToast();
-  const { AAaddress, isConnected, signer: aaSignerDetails } = useSignature();
+  const { AAaddress, isConnected, signer: aaSignerDetails, loading: sigLoading } = useSignature();
   const { execute, checkUserOpStatus } = useSendUserOp();
   const { rpcUrl: configRpcUrl } = useConfig();
   const sendUserOpCtx = useContext(SendUserOpContext);
@@ -199,6 +199,10 @@ export default function StakePage() {
     if (balanceToSet !== 'Error') setAmount(balanceToSet);
     else setAmount('0');
   };
+
+  if (sigLoading) {
+    return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   const commonTxValidations = () => {
     if (!isConnected || !AAaddress || AAaddress === '0x') {

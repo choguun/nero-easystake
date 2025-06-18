@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Droplets, PlusCircle, MinusCircle, Percent, AlertTriangle, Info } from 'lucide-react';
+import { Droplets, PlusCircle, MinusCircle, Percent, AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Slider } from '@/components/ui/slider';
 import { useSignature, useSendUserOp, useConfig, useEthersSigner } from '@/hooks';
@@ -60,7 +60,7 @@ interface TokenInfo {
 
 export default function LiquidityPage() {
   const { toast } = useToast();
-  const { AAaddress, isConnected, signer: aaSignerDetails } = useSignature();
+  const { AAaddress, isConnected, signer: aaSignerDetails, loading: sigLoading } = useSignature();
   const { execute, checkUserOpStatus, latestUserOpResult } = useSendUserOp();
   const { rpcUrl, chainId } = useConfig();
   const provider = useEthersSigner()?.provider;
@@ -751,6 +751,9 @@ export default function LiquidityPage() {
     };
   }, [userOpHash, isProcessing, checkUserOpStatus, toast, latestUserOpResult, txStatusMessage]);
 
+  if (sigLoading) {
+    return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   // --- Actual Page Render ---
   return (

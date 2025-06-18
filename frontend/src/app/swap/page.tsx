@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowRightLeft, Coins, Repeat2, RotateCcw } from 'lucide-react';
+import { ArrowRightLeft, Coins, Repeat2, RotateCcw, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ethers, BigNumber, Signer as EthersSigner, utils as ethersUtils } from 'ethers';
 
@@ -128,7 +128,7 @@ export default function SwapPage() {
   // const userAddress = useUserAddress();
 
   // --- AA Hooks Integration ---
-  const { AAaddress: userAddress, isConnected, signer: aaSignerDetails } = useSignature(); // Renamed AAaddress to userAddress for consistency
+  const { AAaddress: userAddress, isConnected, signer: aaSignerDetails, loading: sigLoading } = useSignature(); // Renamed AAaddress to userAddress for consistency
   const { execute: executeUserOp, checkUserOpStatus } = useSendUserOp();
   const { entryPoint: entryPointAddress, rpcUrl: configRpcUrl } = useConfig();
   const sendUserOpCtx = useContext(SendUserOpContext);
@@ -531,6 +531,9 @@ export default function SwapPage() {
     };
   }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchBalances, checkAllowance, currentAction, toast, sendUserOpCtx, paymasterCtx]);
 
+  if (sigLoading) {
+    return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center px-4 md:px-6">

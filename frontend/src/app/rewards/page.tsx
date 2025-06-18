@@ -84,7 +84,7 @@ const getExplorerLink = (chainId: number | undefined, hash: string, type: 'tx' |
 
 export default function RewardsPage() {
   const { toast } = useToast();
-  const { AAaddress, isConnected } = useSignature();
+  const { AAaddress, isConnected, loading: sigLoading } = useSignature();
   const { execute, checkUserOpStatus, latestUserOpResult } = useSendUserOp();
   const { chainId } = useConfig();
   const provider = useEthersSigner()?.provider;
@@ -413,6 +413,9 @@ export default function RewardsPage() {
     return allowanceBN.gt(0); // Fallback: if allowance is > 0, assume it might be enough or max approved.
   }, [lpTokenInfo, stakeLpAmount]);
 
+  if (sigLoading) {
+    return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   if (!isConnected || !AAaddress) {
     return (
