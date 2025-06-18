@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useState, ChangeEvent, useEffect, useCallback, useMemo } from 'react';
 import { ethers, utils as ethersUtils, BigNumber } from 'ethers';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,8 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 
 import { useSignature, useSendUserOp, useConfig, useEthersSigner } from '@/hooks';
-import { UserOperation } from '@/types'; // UserOperationResultInterface might be part of UserOperation or a separate import
+import { UserOperation } from '@/types';
+import { SendUserOpContext } from '@/contexts';
 import { ERC20_ABI, LP_TOKEN_STAKER_ABI } from '@/constants/abi';
 import {
   LP_TOKEN_STAKER_ADDRESS,
@@ -86,6 +88,7 @@ export default function RewardsPage() {
   const { execute, checkUserOpStatus, latestUserOpResult } = useSendUserOp();
   const { chainId } = useConfig();
   const provider = useEthersSigner()?.provider;
+  const sendUserOpCtx = React.useContext(SendUserOpContext);
 
   // UI State
   const [isPageLoading, setIsPageLoading] = useState<boolean>(true); // For initial data load
@@ -93,6 +96,7 @@ export default function RewardsPage() {
   const [userOpHash, setUserOpHash] = useState<string | null>(null);
   const [txStatusMessage, setTxStatusMessage] = useState<string>('');
   const [activeTab, setActiveTab] = useState('stake');
+  const [currentAction, setCurrentAction] = useState<'stake' | 'unstake' | 'approve' | 'claim' | null>(null);
 
   // Token & Staking Info State
   const [lpTokenInfo, setLpTokenInfo] = useState<TokenInfo | null>(null);
@@ -142,6 +146,15 @@ export default function RewardsPage() {
     }
   }, [provider, AAaddress, toast]);
   
+  const handleCancel = useCallback(() => {
+    setIsProcessing(false);
+    setUserOpHash(null);
+    setTxStatusMessage('');
+    setCurrentAction(null);
+    if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+    toast({ title: 'Transaction Cancelled', description: 'You cancelled the operation.' });
+  }, [toast, sendUserOpCtx]);
+
   const fetchData = useCallback(async () => {
     if (!isConnected || !AAaddress || !provider) {
       setIsPageLoading(false);
@@ -199,6 +212,11 @@ export default function RewardsPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (sendUserOpCtx && !sendUserOpCtx.isWalletPanel && isProcessing && !userOpHash) {
+      handleCancel();
+    }
+  }, [sendUserOpCtx, isProcessing, userOpHash, handleCancel]);
 
   useEffect(() => { // For unstake slider calculation
     if (lpTokenInfo && parseFloat(stakedLpBalance) > 0) {
@@ -223,199 +241,157 @@ export default function RewardsPage() {
     if (lpTokenInfo) setStakeLpAmount(lpTokenInfo.balance);
   };
 
-  const commonUserOpHandler = async (
-    target: string, 
-    abi: any[], 
-    functionName: string, 
-    params: any[], 
-    value: string = '0',
-    successMessage: string,
-    failMessagePrefix: string
-  ) => {
-    setIsProcessing(true);
-    setUserOpHash(null);
-    setTxStatusMessage(`Submitting ${failMessagePrefix.toLowerCase()} transaction...`);
-
-    try {
-      const op = { target, abi, functionName, params, value } as UserOperation;
-      console.log("Executing UserOperation:", op);
-      const result = await execute(op);
-      
-      if (result.userOpHash && !result.error) {
-        setUserOpHash(result.userOpHash);
-        setTxStatusMessage(`${failMessagePrefix} transaction submitted (${result.userOpHash.substring(0,10)}...). Waiting for confirmation...`);
-        toast({ title: 'Transaction Sent', description: `User operation ${result.userOpHash} submitted.`});
-      } else {
-        throw new Error(result.error || `${failMessagePrefix} failed to submit.`);
-      }
-    } catch (error: any) {
-      console.error(`${failMessagePrefix} error:`, error);
-      toast({ title: `${failMessagePrefix} Error`, description: error.message || 'An unknown error occurred.', variant: 'destructive' });
-      setTxStatusMessage(`Failed to ${failMessagePrefix.toLowerCase()}.`);
-      setIsProcessing(false); // Stop processing on immediate failure
-    }
-  };
-
   const handleApproveLpTokens = async () => {
     if (!lpTokenInfo) return;
-    const amountToApprove = ethers.constants.MaxUint256; // Approve max for simplicity
-    await commonUserOpHandler(
-      lpTokenInfo.address,
-      ERC20_ABI,
-      'approve',
-      [LP_TOKEN_STAKER_ADDRESS, amountToApprove],
-      '0',
-      'LP Tokens Approved!',
-      'Approve LP Tokens'
-    );
+    setIsProcessing(true);
+    setCurrentAction('approve');
+    setTxStatusMessage(`Approving ${lpTokenInfo.symbol}...`);
+    try {
+      const result = await execute({
+        target: lpTokenInfo.address,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        params: [LP_TOKEN_STAKER_ADDRESS, ethers.constants.MaxUint256],
+        value: '0',
+      });
+      if (result.userOpHash) {
+        setUserOpHash(result.userOpHash);
+        setTxStatusMessage('Approval submitted. Waiting for confirmation...');
+      } else {
+        throw new Error(result.error || 'Approval failed or was cancelled.');
+      }
+    } catch (error: any) {
+      console.error('Approval Error:', error);
+      toast({ title: 'Approval Failed', description: error.message, variant: 'destructive' });
+      handleCancel();
+    }
   };
 
   const handleStakeLp = async () => {
-    if (!lpTokenInfo || !rewardTokenInfo) return;
-    const amount = parseFloat(stakeLpAmount);
-
-    if (isNaN(amount) || amount <= 0) {
-      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount of LP tokens to stake.', variant: 'destructive' });
+    if (!lpTokenInfo || !stakeLpAmount || parseFloat(stakeLpAmount) <= 0) {
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to stake.', variant: 'destructive' });
       return;
     }
-    if (amount > parseFloat(lpTokenInfo.balance)) {
-      toast({ title: 'Insufficient Balance', description: 'You do not have enough LP tokens.', variant: 'destructive' });
-      return;
-    }
-
     const amountBN = parseUnitsSafe(stakeLpAmount, lpTokenInfo.decimals);
-    if (!amountBN) {
-        toast({ title: 'Parse Error', description: 'Could not parse stake amount.', variant: 'destructive' });
-        return;
+    if (amountBN.isZero()) return;
+    
+    setIsProcessing(true);
+    setCurrentAction('stake');
+    setTxStatusMessage(`Staking ${stakeLpAmount} ${lpTokenInfo.symbol}...`);
+    try {
+      const result = await execute({
+        target: LP_TOKEN_STAKER_ADDRESS,
+        abi: LP_TOKEN_STAKER_ABI,
+        functionName: 'stake',
+        params: [amountBN],
+        value: '0',
+      });
+      if (result.userOpHash) {
+        setUserOpHash(result.userOpHash);
+        setTxStatusMessage('Staking transaction submitted. Waiting for confirmation...');
+      } else {
+        throw new Error(result.error || 'Staking failed or was cancelled.');
+      }
+    } catch (error: any) {
+      console.error('Staking Error:', error);
+      toast({ title: 'Staking Failed', description: error.message, variant: 'destructive' });
+      handleCancel();
     }
-
-    await commonUserOpHandler(
-      LP_TOKEN_STAKER_ADDRESS,
-      LP_TOKEN_STAKER_ABI,
-      'stake',
-      [amountBN],
-      '0',
-      'LP Tokens Staked!',
-      'Stake LP Tokens'
-    );
   };
 
   const handleUnstakeLp = async () => {
-    if (!lpTokenInfo || !rewardTokenInfo) return;
-    const amount = parseFloat(unstakeLpAmount);
-
-    if (isNaN(amount) || amount <= 0) {
-      toast({ title: 'Invalid Amount', description: 'Calculated unstake amount is invalid.', variant: 'destructive' });
+    if (!lpTokenInfo || !unstakeLpAmount || parseFloat(unstakeLpAmount) <= 0) {
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount to unstake.', variant: 'destructive' });
       return;
     }
-    if (amount > parseFloat(stakedLpBalance)) {
-      toast({ title: 'Insufficient Staked Balance', description: 'Cannot unstake more than currently staked.', variant: 'destructive' });
-      return;
-    }
-    
     const amountBN = parseUnitsSafe(unstakeLpAmount, lpTokenInfo.decimals);
-    if (!amountBN) {
-        toast({ title: 'Parse Error', description: 'Could not parse unstake amount.', variant: 'destructive' });
-        return;
-    }
+    if (amountBN.isZero()) return;
 
-    await commonUserOpHandler(
-      LP_TOKEN_STAKER_ADDRESS,
-      LP_TOKEN_STAKER_ABI,
-      'unstake',
-      [amountBN],
-      '0',
-      'LP Tokens Unstaked!',
-      'Unstake LP Tokens'
-    );
+    setIsProcessing(true);
+    setCurrentAction('unstake');
+    setTxStatusMessage(`Unstaking ${unstakeLpAmount} ${lpTokenInfo.symbol}...`);
+    try {
+      const result = await execute({
+        target: LP_TOKEN_STAKER_ADDRESS,
+        abi: LP_TOKEN_STAKER_ABI,
+        functionName: 'unstake',
+        params: [amountBN],
+        value: '0',
+      });
+      if (result.userOpHash) {
+        setUserOpHash(result.userOpHash);
+        setTxStatusMessage('Unstaking transaction submitted. Waiting for confirmation...');
+      } else {
+        throw new Error(result.error || 'Unstaking failed or was cancelled.');
+      }
+    } catch (error: any) {
+      console.error('Unstaking Error:', error);
+      toast({ title: 'Unstaking Failed', description: error.message, variant: 'destructive' });
+      handleCancel();
+    }
   };
-  
+
   const handleClaimRewards = async () => {
-    if (!rewardTokenInfo) return;
-     if (parseFloat(earnedRewards) <= 0) {
-      toast({ title: 'No Rewards', description: 'You have no rewards to claim.', variant: 'default' });
+    if (!rewardTokenInfo || parseFloat(earnedRewards) <= 0) {
+      toast({ title: 'No Rewards', description: 'There are no rewards to claim.', variant: 'destructive' });
       return;
     }
-    await commonUserOpHandler(
-      LP_TOKEN_STAKER_ADDRESS,
-      LP_TOKEN_STAKER_ABI,
-      'claimReward',
-      [],
-      '0',
-      'Rewards Claimed!',
-      'Claim Rewards'
-    );
+    setIsProcessing(true);
+    setCurrentAction('claim');
+    setTxStatusMessage(`Claiming rewards...`);
+    try {
+      const result = await execute({
+        target: LP_TOKEN_STAKER_ADDRESS,
+        abi: LP_TOKEN_STAKER_ABI,
+        functionName: 'claimReward',
+        params: [],
+        value: '0',
+      });
+      if (result.userOpHash) {
+        setUserOpHash(result.userOpHash);
+        setTxStatusMessage('Claim transaction submitted. Waiting for confirmation...');
+      } else {
+        throw new Error(result.error || 'Claiming failed or was cancelled.');
+      }
+    } catch (error: any) {
+      console.error('Claiming Error:', error);
+      toast({ title: 'Claiming Failed', description: error.message, variant: 'destructive' });
+      handleCancel();
+    }
   };
 
-  // Effect for polling UserOp status
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
+    let interval: NodeJS.Timeout | null = null;
     const pollStatus = async () => {
-      if (!userOpHash || !isProcessing) return; // Only poll if processing and hash exists
-      
-      let currentStatusMessage = txStatusMessage; // Preserve current message if no update
-      if (!currentStatusMessage.includes('Waiting for confirmation') && !currentStatusMessage.includes('submitted')) {
-          currentStatusMessage = `Transaction submitted (${userOpHash.substring(0,10)}...). Waiting for confirmation...`;
-      }
-      setTxStatusMessage(currentStatusMessage);
-
-
+      if (!userOpHash || !isProcessing || !currentAction) return;
       try {
-        const statusResult = await checkUserOpStatus(userOpHash);
-        let successful = false;
-        let failed = false;
-        let errorMessage = latestUserOpResult?.error || 'UserOperation failed to execute.';
-
-        if (typeof statusResult === 'boolean') { // Simple true/false from checkUserOpStatus
-          if (statusResult === true) successful = true;
-          // If false, it's still pending or failed (check latestUserOpResult)
-          else if (latestUserOpResult?.error) failed = true;
-
-        } else if (statusResult && typeof statusResult === 'object') { // Detailed object
-           if ((statusResult as any).mined === true || (statusResult as any).executed === true) successful = true;
-           else if ((statusResult as any).failed === true || (statusResult as any).error) {
-               failed = true;
-               errorMessage = (statusResult as any).error || errorMessage;
-           }
-        }
-
-
-        if (successful) {
-          const successTitle = txStatusMessage.split(' ')[0] + ' ' + txStatusMessage.split(' ')[1]; // e.g. "Stake LP"
-          toast({ title: `${successTitle} Confirmed!`, description: `${successTitle} operation was successful.` });
-          setIsProcessing(false);
+        setTxStatusMessage(`Confirming ${currentAction} transaction...`);
+        const status = await checkUserOpStatus(userOpHash);
+        if (status) {
+          toast({ title: 'Transaction Successful', description: `Your ${currentAction} operation was completed.` });
           setUserOpHash(null);
-          setTxStatusMessage(`${successTitle} successful!`);
-          fetchData(); // Refresh data on success
-          // Reset amounts on success
-          if (activeTab === 'stake') setStakeLpAmount('');
-          // Unstake amount is derived, will reset when stakedLpBalance updates via fetchData
-
-        } else if (failed) {
-          toast({ title: 'Transaction Failed', description: errorMessage, variant: 'destructive' });
           setIsProcessing(false);
-          setUserOpHash(null);
-          setTxStatusMessage(`Error: ${errorMessage}`);
+          setTxStatusMessage('');
+          setCurrentAction(null);
+          fetchData(); // Refresh all data
+        } else {
+          setTxStatusMessage('Transaction submitted. Waiting for confirmation...');
         }
-        // If neither successful nor failed, it's still pending. Message is already set.
       } catch (error: any) {
-        console.error('Error polling UserOp status:', error);
-        toast({ title: 'Polling Error', description: error.message || 'Could not get transaction status.', variant: 'destructive' });
-        setIsProcessing(false); // Stop polling on error
-        setUserOpHash(null);
-        setTxStatusMessage('Error checking transaction status.');
+        console.error('Polling Error:', error);
+        toast({ title: 'Transaction Error', description: error.message, variant: 'destructive' });
+        handleCancel();
       }
     };
 
     if (userOpHash && isProcessing) {
-      pollStatus(); // Initial check
-      intervalId = setInterval(pollStatus, 5000); // Poll every 5 seconds
+      interval = setInterval(pollStatus, 5000);
     }
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      if (interval) clearInterval(interval);
     };
-  }, [userOpHash, isProcessing, checkUserOpStatus, toast, latestUserOpResult, fetchData, txStatusMessage, activeTab]);
+  }, [userOpHash, isProcessing, currentAction, checkUserOpStatus, toast, fetchData, handleCancel]);
 
   const isLpTokenApproved = useMemo(() => {
     if (!lpTokenInfo || !lpTokenInfo.allowance) return false;
