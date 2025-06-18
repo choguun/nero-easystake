@@ -20,6 +20,12 @@ import { STAKING_ABI } from '@/constants/abi';
 import { SendUserOpContext } from '@/contexts';
 import { CustomConnectButton } from '@/components/features/connect';
 import { STNERO_ADDRESS } from '@/constants/contracts';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 const EasyStakeVaultABI = STAKING_ABI;
 const VAULT_DECIMALS = 18;
@@ -335,6 +341,42 @@ export default function StakePage() {
             <CustomConnectButton className="w-full" />
           )}
         </CardFooter>
+      </Card>
+
+      <Card className="w-full max-w-md shadow-lg mt-6">
+        <CardHeader>
+          <CardTitle>How EasyStake Works</CardTitle>
+          <CardDescription>
+            Learn about the benefits of liquid staking with EasyStake.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="item-1">
+              <AccordionTrigger>How do I stake?</AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p>1. Connect your wallet and make sure you have NERO to stake.</p>
+                <p>2. Enter the amount of NERO you wish to stake in the input field above.</p>
+                <p>3. Click "Stake" and confirm the transaction in your wallet.</p>
+                <p>4. You will receive stNERO tokens, which represent your staked position and automatically earn rewards.</p>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-2">
+              <AccordionTrigger>Why should I use EasyStake?</AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p><strong>Liquid Staking:</strong> Instantly get stNERO tokens that you can use in other DeFi apps, all while your stake earns rewards. No lock-up periods, full flexibility.</p>
+                <p><strong>Effortless Yield:</strong> No need to run complex validator nodes. Just deposit your NERO and our smart vaults automatically handle the rest, ensuring you get competitive staking yields.</p>
+                <p><strong>AI-Optimized Strategies:</strong> EasyStake is designed to integrate with AI-powered strategies that optimize for the best possible yield, maximizing your returns over time.</p>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-3">
+              <AccordionTrigger>How is this different from other staking?</AccordionTrigger>
+              <AccordionContent>
+                EasyStake is Nero's premier liquid staking solution, designed for simplicity and capital efficiency. While other future staking products may focus on validator operations or governance, EasyStake is built for the everyday user who wants to earn yield on their NERO without complexity. It's the "fire and forget" way to stake.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
       </Card>
     </div>
   );
