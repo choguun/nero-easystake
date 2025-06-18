@@ -172,7 +172,7 @@ export const SignatureProvider: React.FC<ProviderProps> = ({ children }) => {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEoaWalletConnected, signer, eoaAddress, chain, AAaddress]);
+  }, [isEoaWalletConnected, signer, eoaAddress, chain]);
 
 
   const getPaymasterMiddleware = (pm?: 'token' | 'verifying' | 'legacy-token') => {
