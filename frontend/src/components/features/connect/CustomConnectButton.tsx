@@ -14,7 +14,13 @@ import { ethers, utils as ethersUtils } from 'ethers'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, MoreVertical } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // ABI and amount for funding AA wallet - ENTRYPOINT_ABI_DEPOSIT_TO is no longer needed for direct transfer
 // const ENTRYPOINT_ABI_DEPOSIT_TO = ['function depositTo(address account) external payable']; 
@@ -97,7 +103,7 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
   };
 
   return (
-    <div className='inline-flex flex-col space-y-2 items-end'>
+    <div className='inline-flex items-center space-x-2'>
       <RainbowConnectButton.Custom>
         {({ account, chain, openChainModal, openConnectModal, authenticationStatus, mounted }) => {
           const rkReady = mounted && authenticationStatus !== 'loading' && !sigContextLoading;
@@ -133,7 +139,7 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
           if (mode === 'button') {
             if (rkConnected && isAaConnected) {
               return (
-                <div className="flex flex-col items-end space-y-1">
+                <div className="inline-flex items-center space-x-2">
                   <WalletConnectRoundedButton
                     onClick={() => {
                         if (isAaConnected) {
@@ -147,30 +153,32 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     aaNeroBalance={displayBalance}
                     isLoading={isConnectingAA || sigContextLoading}
                   />
-                  {isAaConnected && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleFundAAWallet}
-                      disabled={isFunding || !eoaSignerDetails}
-                      className="text-xs py-1 px-2 h-auto border-primary text-primary hover:bg-primary/10"
-                    >
-                      {isFunding ? fundingStatus.substring(0,20)+'...' : `Fund AA (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO)`}
-                    </Button>
-                  )}
-                  {rkConnected && (
-                    <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                        Nero Faucet <ExternalLink size={12} />
-                    </Link>
-                  )}
-                  {isFunding && fundingStatus && <p className='text-xs text-muted-foreground text-right'>{fundingStatus}</p>}
-                  {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={handleFundAAWallet}
+                        disabled={isFunding || !eoaSignerDetails}
+                      >
+                        {isFunding ? 'Funding...' : `Fund AA (${ethersUtils.formatEther(EOA_FUNDING_AMOUNT)} NERO)`}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer">
+                          Nero Faucet <ExternalLink className="ml-auto h-4 w-4" />
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )
             }
             if (rkConnected && !isAaConnected) {
               return (
-                <div className="flex flex-col items-end space-y-1">
+                <div className="inline-flex items-center space-x-2">
                   <WalletConnectRoundedButton
                     onClick={() => {
                         if (!isConnectingAA) {
@@ -182,10 +190,20 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     isConnected={false}
                     isLoading={isConnectingAA || sigContextLoading}
                   />
-                  <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                      Nero Faucet <ExternalLink size={12} />
-                  </Link>
-                   {isConnectingAA && <p className='text-xs text-muted-foreground text-right'>Connecting AA Wallet...</p>}
+                   <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                       <DropdownMenuItem asChild>
+                        <Link href={FAUCET_URL} target="_blank" rel="noopener noreferrer">
+                          Nero Faucet <ExternalLink className="ml-auto h-4 w-4" />
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )
             }
