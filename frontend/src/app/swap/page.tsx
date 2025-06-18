@@ -115,6 +115,13 @@ export default function SwapPage() {
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [needsApproval, setNeedsApproval] = useState<boolean>(false);
 
+  // --- State for transaction polling and cancellation ---
+  const [isProcessingTx, setIsProcessingTx] = useState(false);
+  const [userOpHash, setUserOpHash] = useState<string | null>(null);
+  const [txStatus, setTxStatus] = useState<string>('');
+  const [isPollingStatus, setIsPollingStatus] = useState(false);
+  const [currentAction, setCurrentAction] = useState<'swap' | 'approve' | null>(null);
+
   const { toast } = useToast();
   // const provider = useEthersProvider(); // Use provider for read-only calls where possible
   // const signer = useEthersSigner();
@@ -224,6 +231,23 @@ export default function SwapPage() {
     }
   }, [userAddress, fetchBalances, fromTokenInfo.decimals, toTokenInfo.decimals]);
 
+  const checkAllowance = useCallback(async () => {
+    const fromAmountBN = ethersUtils.parseUnits(debouncedFromAmount || '0', fromTokenInfo.decimals);
+    if (!provider || !userAddress || userAddress === '0x' || fromTokenInfo.address === APP_WNERO_ADDRESS || fromAmountBN.isZero()) {
+      setNeedsApproval(false);
+      return;
+    }
+    try {
+      const contract = new ethers.Contract(fromTokenInfo.address, ERC20_ABI, provider);
+      const currentAllowance = await contract.allowance(userAddress, APP_UNISWAP_ROUTER_ADDRESS);
+      setAllowance(currentAllowance);
+      setNeedsApproval(currentAllowance.lt(fromAmountBN));
+    } catch (error) {
+      console.error('Failed to check allowance:', error);
+      setNeedsApproval(true); // Assume approval is needed on error
+    }
+  }, [provider, userAddress, debouncedFromAmount, fromTokenInfo.address, fromTokenInfo.decimals]);
+
   // Get exchange rate / estimate output (uses debounced amount)
   useEffect(() => {
     const getEstimate = async () => {
@@ -293,36 +317,14 @@ export default function SwapPage() {
     }
   }, [debouncedFromAmount, fromTokenInfo, toTokenInfo, getProvider, tokenMetadata]);
 
-  // Check allowance (uses debounced amount)
   useEffect(() => {
-    const checkAllowance = async () => {
-      const currentProvider = getProvider(); // Use the dynamic provider
-      if (!currentProvider || !userAddress || userAddress === '0x' || !debouncedFromAmount || parseFloat(debouncedFromAmount) <= 0 || !fromTokenInfo.decimals) {
-        setNeedsApproval(false);
-        return;
-      }
-      // No approval needed for native token (though WNERO is ERC20, this logic is for future native integration)
-      if (fromTokenInfo.address === ethers.constants.AddressZero) { 
-        setNeedsApproval(false);
-        return;
-      }
-      try {
-        const tokenContract = new ethers.Contract(fromTokenInfo.address, ERC20_ABI, currentProvider);
-        const currentAllowance = await tokenContract.allowance(userAddress, APP_UNISWAP_ROUTER_ADDRESS);
-        setAllowance(currentAllowance);
-        const amountInBN = ethers.utils.parseUnits(debouncedFromAmount, fromTokenInfo.decimals);
-        setNeedsApproval(currentAllowance.lt(amountInBN));
-      } catch (error) {
-        console.error("Failed to check allowance:", error);
-        setNeedsApproval(true); 
-      }
-    };
-    checkAllowance();
-  }, [userAddress, fromTokenInfo, debouncedFromAmount, getProvider]); // Added getProvider, changed signer to userAddress
-
+    if (debouncedFromAmount && parseFloat(debouncedFromAmount) > 0) {
+      checkAllowance();
+    }
+  }, [debouncedFromAmount, fromTokenInfo.decimals, needsApproval, checkAllowance]);
 
   const handleAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+    const value = e.target.value.replace(/[^0-9.]/g, '');
     if (/^\d*\.?\d*$/.test(value)) {
       setFromAmount(value);
     }
@@ -340,6 +342,23 @@ export default function SwapPage() {
     setNeedsApproval(false); 
   };
 
+  const handleCancel = useCallback(() => {
+    setIsPollingStatus(false);
+    setIsProcessingTx(false);
+    setIsApproving(false);
+    setCurrentAction(null);
+    setTxStatus('');
+    setUserOpHash(null);
+    if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+    toast({ title: 'Transaction Cancelled', description: 'You cancelled the operation.' });
+  }, [toast, sendUserOpCtx]);
+
+  useEffect(() => {
+    if (sendUserOpCtx && !sendUserOpCtx.isWalletPanel && isProcessingTx && !userOpHash) {
+      handleCancel();
+    }
+  }, [sendUserOpCtx, isProcessingTx, userOpHash, handleCancel]);
+
   const handleApprove = async () => {
     if (!eoaSigner || !userAddress || userAddress === '0x' || !fromAmount || parseFloat(fromAmount) <= 0 || !fromTokenInfo.decimals) {
         toast({ title: "Invalid Input", description: "Please connect wallet, ensure AA address is available, and amount is valid.", variant: 'destructive' });
@@ -356,216 +375,161 @@ export default function SwapPage() {
     console.log("[SwapPage] handleApprove: fromTokenInfo details (address validated):", fromTokenInfo);
 
     setIsApproving(true);
-    setUserOpHash(null); 
-    setTxStatus(''); 
-    setCurrentAction(null);
+    setTxStatus('Requesting approval...');
+    setCurrentAction('approve');
+    setIsProcessingTx(true);
 
     try {
-      const userOpPayload = {
+      const tokenContract = new ethers.Contract(fromTokenInfo.address, ERC20_ABI, provider);
+      // Create UserOp for approval
+      const approveData = tokenContract.interface.encodeFunctionData('approve', [APP_UNISWAP_ROUTER_ADDRESS, ethers.constants.MaxUint256]);
+      
+      setTxStatus('Awaiting signature for approval...');
+      const result = await executeUserOp({
         target: fromTokenInfo.address,
         abi: ERC20_ABI,
-        functionName: "approve",
-        params: [
-          APP_UNISWAP_ROUTER_ADDRESS,
-          ethers.constants.MaxUint256,
-        ],
-        value: BigInt(0),
-      };
-      
-      toast({ title: "Approval UserOp", description: "Preparing approval transaction..." });
-      const userOpResult = await executeUserOp(userOpPayload as any);
+        functionName: 'approve',
+        params: [APP_UNISWAP_ROUTER_ADDRESS, ethers.constants.MaxUint256],
+        value: 0
+      });
 
-      if (userOpResult?.error) {
-        // Handle error returned from executeUserOp itself
-        console.error("[SwapPage] Approval UserOp failed directly:", userOpResult.error);
-        toast({ title: "Approval Failed", description: userOpResult.error, variant: 'destructive' });
-        setIsApproving(false);
-        return; // Stop further processing
-      }
-
-      if (userOpResult?.userOpHash && !userOpResult.userOpHash.startsWith('ERROR')) { // Check for valid hash
-        setUserOpHash(userOpResult.userOpHash);
-        setCurrentAction('approve');
-        setIsPollingStatus(true);
-        toast({ title: "Approval Sent", description: `UserOp Hash: ${userOpResult.userOpHash}. Waiting for confirmation...` });
+      if (result.userOpHash) {
+        setUserOpHash(result.userOpHash);
+        setIsPollingStatus(true); // Start polling for approval status
+        setTxStatus('Approval submitted, waiting for confirmation...');
       } else {
-        // Handle cases where hash is missing or is an error placeholder
-        const errorMsg = userOpResult?.userOpHash || "Failed to send approval UserOperation or UserOpHash not received.";
-        console.error("[SwapPage] Approval UserOp issue:", errorMsg);
-        toast({ title: "Approval Problem", description: errorMsg, variant: 'destructive' });
-        setIsApproving(false);
+        throw new Error(result.error || 'Approval failed or was cancelled.');
       }
-
     } catch (error: any) {
-      console.error("Approval UserOp caught exception:", error);
-      toast({ title: "Approval Exception", description: error.reason || error.message || "Could not approve token via UserOp.", variant: 'destructive' });
-      setIsApproving(false);
-    } 
+      console.error('Approval failed:', error);
+      toast({ title: 'Approval Failed', description: error.message || 'An unknown error occurred.', variant: 'destructive' });
+      handleCancel();
+    }
   };
 
   const handleSwap = async () => {
-    if (!eoaSigner || !userAddress || userAddress === '0x' || !fromAmount || parseFloat(fromAmount) <= 0 || !fromTokenInfo.decimals || !toTokenInfo.decimals || !toAmountEstimate) {
-        toast({ title: "Invalid Input", description: "Please connect wallet, ensure AA address and amounts are valid, and estimate is available.", variant: 'destructive' });
+    // Basic validations
+    if (!userAddress || !provider || !fromTokenInfo.decimals || !toTokenInfo.decimals) {
+        toast({ title: "Setup Error", description: "User or token information is missing.", variant: "destructive" });
         return;
     }
-    if (needsApproval) {
-        toast({ title: "Approval Required", description: `Please approve ${fromTokenInfo.symbol} spending first.`, variant: 'default' });
+    const fromAmountBN = ethers.utils.parseUnits(fromAmount, fromTokenInfo.decimals);
+    if (fromAmountBN.isZero()) {
+        toast({ title: "Invalid Amount", description: "Cannot swap zero tokens.", variant: "destructive" });
+        return;
+    }
+    const balanceBN = ethers.utils.parseUnits(fromTokenBalance, fromTokenInfo.decimals);
+    if (fromAmountBN.gt(balanceBN)) {
+        toast({ title: "Insufficient Balance", description: `You do not have enough ${fromTokenInfo.symbol}.`, variant: "destructive" });
+        return;
+    }
+    if(needsApproval){
+        toast({ title: "Approval Required", description: `Please approve ${fromTokenInfo.symbol} first.`, variant: "destructive" });
         return;
     }
 
     setIsLoading(true);
-    setUserOpHash(null); 
-    setTxStatus(''); 
-    setCurrentAction(null);
+    setTxStatus('Preparing swap...');
+    setCurrentAction('swap');
+    setIsProcessingTx(true);
 
     try {
-      const amountIn = ethers.utils.parseUnits(fromAmount, fromTokenInfo.decimals);
-      const estimatedOut = ethers.utils.parseUnits(toAmountEstimate, toTokenInfo.decimals);
-      
-      const slippageBps = BigNumber.from(50);
-      const amountOutMin = estimatedOut.sub(estimatedOut.mul(slippageBps).div(BigNumber.from(10000)));
+      // Get a reasonable deadline
+      const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes from now
 
-      if (amountOutMin.isNegative() || amountOutMin.isZero()) {
-        toast({ title: "Error", description: "Calculated minimum output amount is too low. Try a larger amount or check slippage.", variant: "destructive"});
-      setIsLoading(false);
-      return;
-    }
+      // This is a simplification. In a real app, you'd want a more robust way to calculate min amount out, like from a quote.
+      const amountOutMin = ethers.utils.parseUnits(toAmountEstimate, toTokenInfo.decimals).mul(99).div(100); // Accept 1% slippage
 
       const path = [fromTokenInfo.address, toTokenInfo.address];
-      const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
-      
-      const userOpPayload = {
-        target: APP_UNISWAP_ROUTER_ADDRESS,
-        abi: UNISWAP_V2_ROUTER_ABI,
-        functionName: "swapExactTokensForTokens",
-        params: [
-          amountIn,
-          amountOutMin,
-          path,
-          userAddress,
-          deadline
-        ],
-        value: BigInt(0),
-      };
 
-      toast({ title: "Swap UserOp", description: "Preparing swap transaction..." });
-      const userOpResult = await executeUserOp(userOpPayload as any);
+      setTxStatus('Awaiting signature for swap...');
 
-      if (userOpResult?.error) {
-        // Handle error returned from executeUserOp itself
-        console.error("[SwapPage] Swap UserOp failed directly:", userOpResult.error);
-        toast({ title: "Swap Failed", description: userOpResult.error, variant: 'destructive' });
-        setIsLoading(false);
-        return; // Stop further processing
-      }
+      const result = await executeUserOp({
+          target: APP_UNISWAP_ROUTER_ADDRESS,
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'swapExactTokensForTokens',
+          params: [
+              fromAmountBN,
+              amountOutMin,
+              path,
+              userAddress, // send to user's AA wallet
+              deadline
+          ],
+          value: 0
+      });
 
-      if (userOpResult?.userOpHash && !userOpResult.userOpHash.startsWith('ERROR')) { // Check for valid hash
-        setUserOpHash(userOpResult.userOpHash);
-        setCurrentAction('swap');
-        setIsPollingStatus(true);
-        toast({ title: "Swap Sent", description: `UserOp Hash: ${userOpResult.userOpHash}. Waiting for confirmation...` });
+      if (result.userOpHash) {
+          setUserOpHash(result.userOpHash);
+          setIsPollingStatus(true);
+          setTxStatus('Swap submitted, waiting for confirmation...');
       } else {
-         // Handle cases where hash is missing or is an error placeholder
-        const errorMsg = userOpResult?.userOpHash || "Failed to send swap UserOperation or UserOpHash not received.";
-        console.error("[SwapPage] Swap UserOp issue:", errorMsg);
-        toast({ title: "Swap Problem", description: errorMsg, variant: 'destructive' });
-        setIsLoading(false);
+          throw new Error(result.error || 'Swap failed or was cancelled.');
       }
-      
     } catch (error: any) {
-      console.error("Swap UserOp caught exception:", error);
-      let errorMsg = "An unknown error occurred during swap.";
-      if (error.reason) errorMsg = error.reason;
-      else if (error.data?.message) errorMsg = error.data.message;
-      else if (error.message) errorMsg = error.message;
-      toast({ title: "Swap Exception", description: errorMsg, variant: 'destructive' });
-      setIsLoading(false);
+      console.error('Swap failed:', error);
+      toast({ title: 'Swap Failed', description: error.message || 'An unknown error occurred.', variant: 'destructive' });
+      handleCancel();
     }
   };
   
-  // --- Add state for UserOp polling (mirroring stake page) ---
-  const [userOpHash, setUserOpHash] = useState<string | null>(null);
-  const [txStatus, setTxStatus] = useState<string>('');
-  const [isPollingStatus, setIsPollingStatus] = useState(false);
-  const [currentAction, setCurrentAction] = useState<'approve' | 'swap' | null>(null);
-  // --- End of UserOp polling state ---
-
-  // --- Add useEffect for UserOp polling (mirroring stake page, simplified for approve/swap) ---
   useEffect(() => {
-    let intervalId: number | null = null;
+    let intervalId: NodeJS.Timeout | null = null;
+
     const pollStatus = async () => {
       if (!userOpHash || !isPollingStatus || !currentAction) return;
+
       try {
-        setTxStatus(`Confirming ${currentAction}... UserOp: ${userOpHash.substring(0,10)}...`);
+        setTxStatus(`Confirming ${currentAction}...`);
         const statusResult = await checkUserOpStatus(userOpHash);
-        let successful = false;
-        let failed = false;
+        
+        const actionVerb = currentAction.charAt(0).toUpperCase() + currentAction.slice(1);
 
-        if (typeof statusResult === 'boolean') {
-          if (statusResult === true) successful = true;
-        } else if (statusResult && typeof statusResult === 'object') {
-          if ((statusResult as any).mined === true || (statusResult as any).executed === true) successful = true;
-          else if ((statusResult as any).failed === true) failed = true;
-        }
-
-        if (successful) {
-          toast({ title: `${currentAction === 'approve' ? 'Approval' : 'Swap'} Successful!`, description: `UserOp ${userOpHash} confirmed.` });
-          setTxStatus(`${currentAction === 'approve' ? 'Approval' : 'Swap'} successful!`);
-          setIsPollingStatus(false);
-          if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false); // Example context usage
-          if (paymasterCtx) paymasterCtx.clearToken(); // Example context usage
+        if (statusResult) {
+          console.log(`[SwapPage] ${actionVerb} successful for UserOpHash: ${userOpHash}`);
+          toast({ title: `${actionVerb} Successful!`, description: `Your ${currentAction} operation was completed.` });
           
           if (currentAction === 'approve') {
-            // Force re-check allowance
-            // Slight delay to allow state to propagate on-chain if necessary
-            setTimeout(async () => {
-                const currentProvider = getProvider();
-                if (currentProvider && userAddress && userAddress !== '0x' && fromTokenInfo.decimals) {
-                    const tokenContract = new ethers.Contract(fromTokenInfo.address, ERC20_ABI, currentProvider);
-                    const newAllowance = await tokenContract.allowance(userAddress, APP_UNISWAP_ROUTER_ADDRESS);
-                    setAllowance(newAllowance);
-                    const amountInBN = ethers.utils.parseUnits(debouncedFromAmount || "0", fromTokenInfo.decimals);
-                    setNeedsApproval(newAllowance.lt(amountInBN));
-                }
-                setIsApproving(false); // Reset approving state
-            }, 1000);
-          } else if (currentAction === 'swap') {
-            fetchBalances();
-            setFromAmount('');
-            setIsLoading(false); // Reset loading state
+            setNeedsApproval(false);
+            checkAllowance(); // Re-check allowance to update UI
           }
+          if (currentAction === 'swap') {
+            setFromAmount(''); // Reset input
+            setToAmountEstimate('');
+          }
+          
+          fetchBalances(); // Refresh balances for both tokens
+
+          // Reset all transaction states
+          setIsPollingStatus(false);
           setUserOpHash(null);
           setCurrentAction(null);
-        } else if (failed) {
-          toast({ title: `${currentAction === 'approve' ? 'Approval' : 'Swap'} Failed`, description: `UserOp ${userOpHash} failed.`, variant: 'destructive' });
-          setTxStatus(`${currentAction === 'approve' ? 'Approval' : 'Swap'} failed.`);
-          setIsPollingStatus(false);
-          if (currentAction === 'approve') setIsApproving(false);
-          if (currentAction === 'swap') setIsLoading(false);
-          setCurrentAction(null);
+          setIsLoading(false);
+          setIsApproving(false);
+          setIsProcessingTx(false);
+          if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+          if (paymasterCtx) paymasterCtx.clearToken();
         } else {
-          setTxStatus(`UserOp submitted (${userOpHash.substring(0,10)}...), awaiting confirmation...`);
+          setTxStatus(`UserOp submitted, awaiting ${currentAction} confirmation...`);
         }
       } catch (error) {
         console.error(`[SwapPage] Error polling ${currentAction} status for UserOpHash ${userOpHash}:`, error);
-        toast({ title: "Polling Error", description: `Error polling ${currentAction} status.`, variant: 'destructive' });
-        setTxStatus(`Error polling ${currentAction} status.`);
-        setIsPollingStatus(false);
-        if (currentAction === 'approve') setIsApproving(false);
-        if (currentAction === 'swap') setIsLoading(false);
+        toast({ title: `Polling Error`, description: `Error checking ${currentAction} status.`, variant: "destructive" });
+        setIsPollingStatus(false); // Stop polling on error
+        setIsLoading(false);
+        setIsApproving(false);
+        setIsProcessingTx(false);
         setCurrentAction(null);
       }
     };
 
-    if (userOpHash && isPollingStatus && currentAction) {
-      intervalId = window.setInterval(pollStatus, 5000) as unknown as number;
-      pollStatus(); // Initial call
+    if (userOpHash && isPollingStatus) {
+      intervalId = setInterval(pollStatus, 5000); // Poll every 5 seconds
     }
+
     return () => {
-      if (intervalId) window.clearInterval(intervalId);
+      if (intervalId) clearInterval(intervalId);
     };
-  }, [userOpHash, isPollingStatus, checkUserOpStatus, currentAction, sendUserOpCtx, paymasterCtx, fetchBalances, getProvider, userAddress, fromTokenInfo, debouncedFromAmount, toast]);
-  // --- End of UserOp polling useEffect ---
+  }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchBalances, checkAllowance, currentAction, toast, sendUserOpCtx, paymasterCtx]);
 
 
   return (

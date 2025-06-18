@@ -72,16 +72,31 @@ export const ERC721_ABI = [
 ]
 
 export const STAKING_ABI = [
-  // Read-Only Functions
-  'function balanceOf(address owner) view returns (uint256)',
-  'function decimals() view returns (uint8)',
-  'function symbol() view returns (string)',
-  'function name() view returns (string)',
-  
-  'function depositEth() external',
-  'function redeemEth(uint256 shares, address receiver) external',
-  'function transfer(address to, uint256 amount) external returns (bool)',
-]
+  "function balanceOf(address owner) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+  "function name() view returns (string)",
+  "function asset() view returns (address)",
+  "function totalAssets() view returns (uint256)",
+  "function convertToShares(uint256 assets) view returns (uint256)",
+  "function convertToAssets(uint256 shares) view returns (uint256)",
+  "function maxDeposit(address receiver) view returns (uint256)",
+  "function maxMint(address receiver) view returns (uint256)",
+  "function maxWithdraw(address owner) view returns (uint256)",
+  "function maxRedeem(address owner) view returns (uint256)",
+  "function previewDeposit(uint256 assets) view returns (uint256)",
+  "function previewMint(uint256 shares) view returns (uint256)",
+  "function previewWithdraw(uint256 assets) view returns (uint256)",
+  "function previewRedeem(uint256 shares) view returns (uint256)",
+  "function deposit(uint256 assets, address receiver) returns (uint256)",
+  "function mint(uint256 shares, address receiver) returns (uint256)",
+  "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
+  "function redeem(uint256 shares, address receiver, address owner) returns (uint256)",
+  "function depositEth() payable",
+  "function redeemEth(uint256 shares, address receiver)",
+  "event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)",
+  "event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)"
+];
 
 export const LP_TOKEN_STAKER_ABI = [
   {

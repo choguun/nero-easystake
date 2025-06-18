@@ -14,54 +14,40 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Wallet, ArrowRightLeft, Repeat2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-// Imports from stake/page.tsx
 import { useSignature, useSendUserOp, useConfig, usePaymasterContext } from '@/hooks';
 import { ethers, utils as ethersUtils, Contract, BigNumberish } from 'ethers';
 import { STAKING_ABI } from '@/constants/abi';
-import { UserOperationResultInterface } from '@/types';
 import { SendUserOpContext } from '@/contexts';
 import { CustomConnectButton } from '@/components/features/connect';
-
-// Import STNERO_ADDRESS from constants
 import { STNERO_ADDRESS } from '@/constants/contracts';
 
-// Use STNERO_ADDRESS from constants. The old EASYSTAKE_VAULT_ADDRESS constant is removed.
 const EasyStakeVaultABI = STAKING_ABI;
 const VAULT_DECIMALS = 18;
 
 export default function StakePage() {
   const [isStakingMode, setIsStakingMode] = useState<boolean>(true);
   const [amount, setAmount] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const { toast } = useToast();
-
-  // Hooks and contexts from stake/page.tsx
-  const { AAaddress, isConnected, signer: aaSignerDetails, simpleAccountInstance } = useSignature();
+  const { AAaddress, isConnected, signer: aaSignerDetails } = useSignature();
   const { execute, checkUserOpStatus } = useSendUserOp();
-  const { entryPoint: entryPointAddress, rpcUrl: configRpcUrl } = useConfig();
+  const { rpcUrl: configRpcUrl } = useConfig();
   const sendUserOpCtx = useContext(SendUserOpContext);
   const paymasterCtx = usePaymasterContext();
 
-  // State from stake/page.tsx
   const [nativeBalance, setNativeBalance] = useState<string>('0');
   const [isLoadingNativeBalance, setIsLoadingNativeBalance] = useState(false);
   const [shareBalance, setShareBalance] = useState<string>('0');
   const [isLoadingShareBalance, setIsLoadingShareBalance] = useState(false);
-  
   const [isProcessingTx, setIsProcessingTx] = useState(false);
   const [userOpHash, setUserOpHash] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<string>('');
   const [isPollingStatus, setIsPollingStatus] = useState(false);
   const [currentAction, setCurrentAction] = useState<'stake' | 'unstake' | null>(null);
-
-  // For estimates - using preview functions from the vault
   const [estimatedReceiveAmount, setEstimatedReceiveAmount] = useState<string>('0.0');
 
-  // Derived state (kept from original stake2/page.tsx for UI logic)
   const inputTokenSymbol = isStakingMode ? 'NERO' : 'stNERO';
   const outputTokenSymbol = isStakingMode ? 'stNERO' : 'NERO';
-  
+
   const getProvider = useCallback(() => {
     if (aaSignerDetails && aaSignerDetails.provider) {
       return aaSignerDetails.provider;
@@ -77,7 +63,7 @@ export default function StakePage() {
         const balance = await provider.getBalance(AAaddress);
         setNativeBalance(ethersUtils.formatEther(balance));
       } catch (error) {
-        console.error('[Stake2Page] Error fetching native balance:', error);
+        console.error('[StakePage] Error fetching native balance:', error);
         setNativeBalance('Error');
         toast({ title: 'Error', description: 'Could not fetch NERO balance.', variant: 'destructive' });
       } finally {
@@ -95,7 +81,7 @@ export default function StakePage() {
         const balance = await vaultContract.balanceOf(AAaddress);
         setShareBalance(ethersUtils.formatUnits(balance, VAULT_DECIMALS));
       } catch (error) {
-        console.error('[Stake2Page] Error fetching stNERO balance:', error);
+        console.error('[StakePage] Error fetching stNERO balance:', error);
         setShareBalance('Error');
         toast({ title: 'Error', description: 'Could not fetch stNERO balance.', variant: 'destructive' });
       } finally {
@@ -103,50 +89,30 @@ export default function StakePage() {
       }
     }
   }, [AAaddress, getProvider, toast]);
-  
+
   const fetchEstimates = useCallback(async () => {
     const numericAmount = parseFloat(amount);
     if (isNaN(numericAmount) || numericAmount <= 0 || !STNERO_ADDRESS) {
       setEstimatedReceiveAmount('0.0');
       return;
     }
-
     const provider = getProvider();
     if (!provider) {
-        console.warn('[Stake2Page] Provider not available for fetching estimates.');
-        setEstimatedReceiveAmount('N/A'); 
-        return;
+      setEstimatedReceiveAmount('N/A');
+      return;
     }
     const vaultContract = new Contract(STNERO_ADDRESS, EasyStakeVaultABI, provider);
-    
     try {
       const amountInWei = ethersUtils.parseUnits(amount, isStakingMode ? 18 : VAULT_DECIMALS);
-
-      if (isStakingMode) { // Staking NERO -> stNERO
-        if (typeof vaultContract.previewDeposit === 'function') {
-          const estimatedSharesOut = await vaultContract.previewDeposit(amountInWei);
-          setEstimatedReceiveAmount(ethersUtils.formatUnits(estimatedSharesOut, VAULT_DECIMALS));
-        } else {
-          console.warn('[Stake2Page] vaultContract.previewDeposit is not a function. Cannot fetch estimate for staking.');
-          setEstimatedReceiveAmount('N/A');
-        }
-      } else { // Unstaking stNERO (shares) -> NERO (assets)
-        if (typeof vaultContract.previewRedeem === 'function') {
-          const assetsOutWei = await vaultContract.previewRedeem(amountInWei); // amountInWei is shares
-          setEstimatedReceiveAmount(ethersUtils.formatEther(assetsOutWei));
-        } else if (typeof vaultContract.previewWithdraw === 'function') {
-          // This assumes previewWithdraw here takes shares and returns assets.
-          // Standard ERC4626 previewWithdraw typically takes assets one wants to withdraw.
-          console.warn('[Stake2Page] Using vaultContract.previewWithdraw for unstaking estimate. Ensure it expects shares as input and returns assets.');
-          const assetsOutWei = await vaultContract.previewWithdraw(amountInWei); // amountInWei is shares
-          setEstimatedReceiveAmount(ethersUtils.formatEther(assetsOutWei));
-        } else {
-          console.warn('[Stake2Page] Neither vaultContract.previewRedeem nor vaultContract.previewWithdraw is available for unstaking estimate.');
-          setEstimatedReceiveAmount('N/A');
-        }
+      if (isStakingMode) {
+        const estimatedSharesOut = await vaultContract.previewDeposit(amountInWei);
+        setEstimatedReceiveAmount(ethersUtils.formatUnits(estimatedSharesOut, VAULT_DECIMALS));
+      } else {
+        const assetsOutWei = await vaultContract.previewRedeem(amountInWei);
+        setEstimatedReceiveAmount(ethersUtils.formatEther(assetsOutWei));
       }
     } catch (error) {
-      console.error('[Stake2Page] Error fetching estimate:', error);
+      console.error('[StakePage] Error fetching estimate:', error);
       setEstimatedReceiveAmount('Error');
     }
   }, [amount, isStakingMode, getProvider]);
@@ -160,42 +126,42 @@ export default function StakePage() {
       setShareBalance('0');
     }
   }, [isConnected, AAaddress, fetchNativeBalance, fetchShareBalance]);
-  
+
   useEffect(() => {
     if (parseFloat(amount) > 0) {
-        fetchEstimates();
+      fetchEstimates();
     } else {
-        setEstimatedReceiveAmount('0.0');
+      setEstimatedReceiveAmount('0.0');
     }
   }, [amount, isStakingMode, fetchEstimates]);
 
+  const handleCancel = useCallback(() => {
+    setIsPollingStatus(false);
+    setIsProcessingTx(false);
+    setCurrentAction(null);
+    setTxStatus('');
+    setUserOpHash(null);
+    if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+    toast({ title: 'Transaction Cancelled', description: 'You cancelled the operation.' });
+  }, [toast, sendUserOpCtx]);
+
   useEffect(() => {
-    let intervalId: number | null = null;
+    if (sendUserOpCtx && !sendUserOpCtx.isWalletPanel && isProcessingTx && !userOpHash) {
+      handleCancel();
+    }
+  }, [sendUserOpCtx, isProcessingTx, userOpHash, handleCancel]);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
     const pollStatus = async () => {
       if (!userOpHash || !isPollingStatus || !currentAction) return;
       try {
         setTxStatus(`Confirming ${currentAction}...`);
         const statusResult = await checkUserOpStatus(userOpHash);
-        let successful = false;
-        let failed = false;
-
-        if (typeof statusResult === 'boolean') {
-          if (statusResult === true) successful = true;
-        } else if (statusResult && typeof statusResult === 'object') {
-          const result = statusResult as any;
-          if (result.mined === true || result.executed === true || result.success === 'true' || result.success === true) {
-            successful = true;
-          } else if (result.failed === true || result.success === 'false' || result.success === false) {
-            failed = true;
-          }
-        }
-        
         const actionVerb = currentAction === 'stake' ? 'Staking' : 'Unstaking';
-
-        if (successful) {
-          console.log(`[Stake2Page] ${actionVerb} successful for UserOpHash: ${userOpHash}`);
+        if (statusResult) {
+          console.log(`[StakePage] ${actionVerb} successful for UserOpHash: ${userOpHash}`);
           toast({ title: `${actionVerb} Successful!`, description: `Your ${currentAction} operation was completed.` });
-          setTxStatus(`${actionVerb} successful!`);
           setIsPollingStatus(false);
           if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
           if (paymasterCtx) paymasterCtx.clearToken();
@@ -205,51 +171,98 @@ export default function StakePage() {
           setCurrentAction(null);
           setAmount('');
           setEstimatedReceiveAmount('0.0');
-        } else if (failed) {
-          console.log(`[Stake2Page] ${actionVerb} failed for UserOpHash: ${userOpHash}`);
-          toast({ title: `${actionVerb} Failed`, description: `Your ${currentAction} operation failed.`, variant: 'destructive' });
-          setTxStatus(`${actionVerb} failed.`);
-          setIsPollingStatus(false);
-          setCurrentAction(null);
         } else {
           setTxStatus('UserOp submitted, awaiting confirmation...');
         }
       } catch (error) {
-        console.error(`[Stake2Page] Error polling ${currentAction} status for UserOpHash ${userOpHash}:`, error);
-        toast({ title: 'Polling Error', description: `Error checking ${currentAction} status.`, variant: 'destructive' });
-        setTxStatus(`Error polling ${currentAction} status.`);
+        console.error(`[StakePage] Error polling ${currentAction} status for UserOpHash ${userOpHash}:`, error);
         setIsPollingStatus(false);
-        setCurrentAction(null);
       } finally {
-        if (!isPollingStatus) {
-            setIsProcessingTx(false); 
-        }
+        if (!isPollingStatus) setIsProcessingTx(false);
       }
     };
-
     if (userOpHash && isPollingStatus && currentAction) {
-      intervalId = window.setInterval(pollStatus, 5000) as unknown as number;
-      pollStatus();
+      intervalId = setInterval(pollStatus, 5000);
     }
     return () => {
-      if (intervalId) window.clearInterval(intervalId);
+      if (intervalId) clearInterval(intervalId);
     };
   }, [userOpHash, isPollingStatus, checkUserOpStatus, fetchNativeBalance, fetchShareBalance, currentAction, toast, sendUserOpCtx, paymasterCtx]);
 
   const handleAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*\.?\d*$/.test(value)) {
-      setAmount(value);
-    }
+    if (/^\d*\.?\d*$/.test(value)) setAmount(value);
   };
 
   const handleMaxClick = () => {
     const balanceToSet = isStakingMode ? nativeBalance : shareBalance;
-    if (balanceToSet !== 'Error' && balanceToSet !== 'Provider Error') {
-      setAmount(balanceToSet);
-    } else {
-      setAmount('0');
-       toast({ title: 'Error', description: 'Cannot set max due to balance error.', variant: 'destructive'});
+    if (balanceToSet !== 'Error') setAmount(balanceToSet);
+    else setAmount('0');
+  };
+
+  const commonTxValidations = () => {
+    if (!isConnected || !AAaddress || AAaddress === '0x') {
+      toast({ title: 'Wallet Not Connected', variant: 'destructive' });
+      return false;
+    }
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      toast({ title: 'Invalid Amount', variant: 'destructive' });
+      return false;
+    }
+    const balance = parseFloat(isStakingMode ? nativeBalance : shareBalance);
+    if (isNaN(balance) || numericAmount > balance) {
+      toast({ title: 'Insufficient Balance', variant: 'destructive' });
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!commonTxValidations()) return;
+    const action = isStakingMode ? 'stake' : 'unstake';
+    setCurrentAction(action);
+    setIsProcessingTx(true);
+    setTxStatus(`Preparing to ${action}...`);
+
+    try {
+      const amountInWei = ethersUtils.parseUnits(amount, isStakingMode ? 18 : VAULT_DECIMALS);
+      
+      let functionName: string;
+      let params: any[];
+      let txValue: BigNumberish;
+
+      if (isStakingMode) {
+        functionName = 'depositEth';
+        params = [];
+        txValue = amountInWei;
+      } else {
+        functionName = 'redeemEth';
+        params = [amountInWei, AAaddress];
+        txValue = BigInt(0);
+      }
+      
+      setTxStatus('Please confirm the transaction...');
+
+      const result = await execute({
+        target: STNERO_ADDRESS,
+        abi: EasyStakeVaultABI,
+        functionName,
+        params,
+        value: txValue,
+      });
+
+      if (result.userOpHash) {
+        setUserOpHash(result.userOpHash);
+        setIsPollingStatus(true);
+        setTxStatus('Transaction submitted, waiting for confirmation...');
+      } else {
+        throw new Error(result.error || 'Transaction failed or was cancelled.');
+      }
+    } catch (error: any) {
+      console.error(`[StakePage] Error during ${action}:`, error);
+      toast({ title: `${action} Failed`, description: error.message || 'An unknown error occurred.', variant: 'destructive' });
+      handleCancel();
     }
   };
 
@@ -258,225 +271,65 @@ export default function StakePage() {
     setAmount('');
     setEstimatedReceiveAmount('0.0');
     setTxStatus('');
-    setUserOpHash(null);
-    setIsProcessingTx(false);
-    setIsPollingStatus(false);
-    setCurrentAction(null);
-  };
-
- const commonTxValidations = () => {
-    if (!isConnected || !AAaddress || AAaddress === '0x') {
-      toast({ title: 'Wallet Not Connected', description: 'Please connect your wallet.', variant: 'destructive' });
-      return false;
-    }
-    if (!STNERO_ADDRESS) {
-      toast({ title: 'Configuration Error', description: 'Staking contract address is not configured.', variant: 'destructive' });
-      return false;
-    }
-    if (!EasyStakeVaultABI || EasyStakeVaultABI.length === 0) {
-      toast({ title: 'Configuration Error', description: 'Staking contract ABI is not configured.', variant: 'destructive' });
-      return false;
-    }
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      toast({ title: 'Invalid Amount', description: `Please enter a valid amount of ${inputTokenSymbol}.`, variant: 'destructive'});
-      return false;
-    }
-    const currentBalance = parseFloat(isStakingMode ? nativeBalance : shareBalance);
-    if (isNaN(currentBalance) || numericAmount > currentBalance) {
-      toast({ title: 'Insufficient Balance', description: `You do not have enough ${inputTokenSymbol}.`, variant: 'destructive'});
-      return false;
-    }
-    return true;
-  };
-
- const handleSubmit = async () => {
-    if (!commonTxValidations()) return;
-    if (!AAaddress || AAaddress === '0x') { 
-        toast({ title: 'Account Error', description: 'Smart account address not available.', variant: 'destructive' });
-        return;
-    }
-
-    const amountToProcess = parseFloat(amount);
-    const action = isStakingMode ? 'stake' : 'unstake'; 
-    setCurrentAction(action);
-    setIsProcessingTx(true);
-    setUserOpHash(null);
-    setTxStatus(`Preparing to ${action}...`);
-    setIsPollingStatus(false);
-    
-    if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(true);
-
-    try {
-      let functionName: string;
-      let params: any[];
-      let txValue: BigNumberish;
-
-      if (isStakingMode) { // Staking NERO
-        functionName = 'depositEth';
-        // As confirmed by runtime error and stake/page.tsx, depositEth in STAKING_ABI takes 0 args from caller.
-        // The actual NERO amount is sent as the transaction value.
-        params = []; 
-        txValue = ethersUtils.parseEther(amountToProcess.toString());
-      } else { // Unstaking stNERO
-        functionName = 'redeem'; // Assuming 'redeem' is the correct function in STAKING_ABI for stake2/page.tsx
-        const sharesToRedeem = ethersUtils.parseUnits(amountToProcess.toString(), VAULT_DECIMALS);
-        // Parameters for redeem(uint256 shares, address receiver, address owner)
-        params = [sharesToRedeem, AAaddress, AAaddress]; 
-        txValue = '0'; // No ETH value sent for redeem operation itself
-      }
-      
-      if (paymasterCtx && paymasterCtx.selectedPaymasterType && paymasterCtx.selectedToken) {
-        console.log('[Stake2Page] Paymaster options from context (used internally by useSendUserOp):', {
-            type: paymasterCtx.selectedPaymasterType,
-            token: paymasterCtx.selectedToken,
-        });
-      } else {
-        console.log('[Stake2Page] No paymaster token/type selected in context.');
-      }
-
-      console.log(`[Stake2Page] Calling execute for ${action} with:`, {
-        functionName,
-        target: STNERO_ADDRESS,
-        abi: "EasyStakeVaultABI (not logging full ABI)",
-        value: txValue.toString(),
-        params,
-      });
-      
-      const result = await execute({
-        functionName,
-        target: STNERO_ADDRESS, 
-        abi: EasyStakeVaultABI,          
-        value: txValue, 
-        params: params,    
-      }) as UserOperationResultInterface; // Added type assertion as in stake/page.tsx
-
-      if (result && result.userOpHash && !result.error && (result as any).result !== false) { // Added (result as any).result check like in stake/page.tsx
-        setUserOpHash(result.userOpHash);
-        setTxStatus(`UserOperation submitted: ${result.userOpHash}`);
-        setIsPollingStatus(true);
-      } else {
-        const errorMessage = result?.error || (result?.userOpHash ? 'Operation may have failed or was not mined.' : 'Submission failed or hash missing.');
-        toast({ title: `${action === 'stake' ? 'Staking' : 'Unstaking'} Failed`, description: errorMessage, variant: 'destructive' });
-        setTxStatus(`${action === 'stake' ? 'Staking' : 'Unstaking'} Failed: ${errorMessage}`);
-        setUserOpHash(result?.userOpHash || null);
-        setIsPollingStatus(false); // Ensure polling stops on failure
-        if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false); // Close panel on failure too
-      }
-
-    } catch (error: any) {
-      console.error(`[Stake2Page] Error during ${action}:`, error);
-      toast({ title: `${isStakingMode ? 'Staking' : 'Unstaking'} Failed`, description: error.message || 'An unexpected error occurred.', variant: 'destructive' });
-      setTxStatus(`Error during ${action}: ${error.message || 'Unknown error'}`);
-      setIsProcessingTx(false); // Ensure loading state is reset
-      setCurrentAction(null);
-      if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
-    } finally {
-       // isProcessingTx is primarily controlled by pollingStatus now for success cases
-       // For direct error or non-polling failure, it should be reset in catch or specific else blocks
-       // if (!isPollingStatus) { // This might prematurely set isProcessingTx to false if polling just started
-       //   setIsProcessingTx(false);
-       // }
-    }
   };
 
   return (
-    <div className="container mx-auto flex min-h-[calc(100dvh-theme(spacing.28))] flex-col items-center justify-center px-4 md:px-6">
-      <Card className="shadow-lg w-full max-w-2xl">
+    <div className="flex flex-col items-center justify-start min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
         <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="flex-grow">
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Repeat2 className="h-6 w-6 text-primary" />
-                {isStakingMode ? 'Stake NERO, Get stNERO' : 'Unstake stNERO, Get NERO'}
-              </CardTitle>
-              <CardDescription>
-                {isStakingMode 
-                  ? 'Stake your NERO to receive stNERO and earn rewards.' 
-                  : 'Unstake your stNERO to receive NERO.'}
-                {(!isConnected || !AAaddress || AAaddress === "0x") && " Please connect your wallet to proceed."}
-              </CardDescription>
-            </div>
-            <CustomConnectButton />
-          </div>
+          <CardTitle className="flex justify-between items-center">
+            <span>{isStakingMode ? 'Stake NERO' : 'Unstake stNERO'}</span>
+            <Repeat2 className="h-5 w-5 text-gray-400 cursor-pointer hover:text-gray-600" onClick={toggleMode} />
+          </CardTitle>
+          <CardDescription>
+            {isStakingMode ? 'Stake NERO and receive stNERO tokens.' : 'Redeem your stNERO for NERO.'}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* <div className="flex justify-end">
-            <Button variant="outline" onClick={toggleMode} size="sm" className="gap-2">
-              <ArrowRightLeft className="h-4 w-4" />
-              Switch to {isStakingMode ? 'Unstake stNERO' : 'Stake NERO'}
-            </Button>
-          </div> */}
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-baseline">
-              <Label htmlFor="amount-input">Amount to {isStakingMode ? 'Stake' : 'Unstake'} ({inputTokenSymbol})</Label>
-               <span className="text-sm text-muted-foreground">
-                 Balance: {isLoadingNativeBalance || isLoadingShareBalance ? "Loading..." : (isStakingMode ? nativeBalance : shareBalance)} {inputTokenSymbol}
-               </span>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between items-baseline">
+                <Label htmlFor="amount-stake">{isStakingMode ? 'Amount to Stake' : 'Amount to Unstake'}</Label>
+                <span className="text-xs text-gray-500">
+                  Balance: {isLoadingNativeBalance || isLoadingShareBalance ? 'Loading...' : (isStakingMode ? parseFloat(nativeBalance).toFixed(4) : parseFloat(shareBalance).toFixed(4))} {inputTokenSymbol}
+                </span>
+              </div>
+              <div className="relative">
+                <Input id="amount-stake" type="text" placeholder="0.0" value={amount} onChange={handleAmountChange} className="pr-16" disabled={isProcessingTx} />
+                <Button variant="link" className="absolute inset-y-0 right-0 px-3 text-indigo-600" onClick={handleMaxClick} disabled={isProcessingTx}>Max</Button>
+              </div>
             </div>
-            <div className="relative">
-              <Input
-                id="amount-input"
-                type="text"
-                placeholder="0.0"
-                value={amount}
-                onChange={handleAmountChange}
-                className="pr-16"
-                inputMode="decimal"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleMaxClick}
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7"
-              >
-                Max
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center text-muted-foreground">
-            <Button variant="outline" onClick={toggleMode} size="sm" className="gap-2">
-                <ArrowRightLeft className="h-4 w-4" />
+            <div className="flex justify-center items-center my-2">
+            <Button variant="outline" size="icon" onClick={toggleMode} aria-label="Switch tokens" disabled={!isConnected}>
+              <ArrowRightLeft className="h-5 w-5 text-primary" />
             </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="estimate-output">Estimated {outputTokenSymbol} Received</Label>
-            <Input
-              id="estimate-output"
-              type="text"
-              readOnly
-              value={estimatedReceiveAmount !== 'Error' && parseFloat(estimatedReceiveAmount) > 0 ? `≈ ${parseFloat(estimatedReceiveAmount).toFixed(4)}` : '0.0'}
-              className="bg-muted border-muted cursor-not-allowed"
-            />
-            {estimatedReceiveAmount === 'Error' && (
-              <p className="text-xs text-destructive">Could not fetch estimate.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>{isStakingMode ? 'Estimated stNERO Received' : 'Estimated NERO Received'}</Label>
+              <div className="p-2 bg-gray-100 rounded-md text-lg font-medium h-[40px] flex items-center">
+                <span>{estimatedReceiveAmount} {outputTokenSymbol}</span>
+              </div>
+            </div>
+            {isProcessingTx && (
+              <div className="mt-4 text-center text-sm text-gray-500">
+                <p>{txStatus}</p>
+                {userOpHash && (
+                  <a href={`https://testnet.nerochain.io/tx/${userOpHash}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    View on Explorer
+                  </a>
+                )}
+              </div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
-              {txStatus || (userOpHash && `UserOp: ${userOpHash.substring(0,10)}...`)}
-            </p>
           </div>
-
-          <div className="border-t pt-4 mt-4">
-             <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Wallet className="h-4 w-4" />
-                Your {outputTokenSymbol} Balance: {isLoadingNativeBalance || isLoadingShareBalance ? "Loading..." : (isStakingMode ? shareBalance : nativeBalance)} {outputTokenSymbol}
-            </p>
-          </div>
-
         </CardContent>
         <CardFooter>
-          <Button
-             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-             onClick={handleSubmit}
-             disabled={!isConnected || isProcessingTx || parseFloat(amount) <= 0 || isNaN(parseFloat(amount)) || (isStakingMode && parseFloat(amount) > parseFloat(nativeBalance)) || (!isStakingMode && parseFloat(amount) > parseFloat(shareBalance)) }
-          >
-             {isProcessingTx 
-                ? `${currentAction === 'stake' ? 'Staking' : 'Unstaking'}...` 
-                : `${isStakingMode ? 'Stake' : 'Unstake'} ${inputTokenSymbol}`}
-          </Button>
+          {isConnected ? (
+            <Button className="w-full" onClick={handleSubmit} disabled={isProcessingTx || !parseFloat(amount) || parseFloat(amount) <= 0}>
+              {isProcessingTx ? 'Processing...' : (isStakingMode ? 'Stake NERO' : 'Unstake')}
+            </Button>
+          ) : (
+            <CustomConnectButton className="w-full" />
+          )}
         </CardFooter>
       </Card>
     </div>

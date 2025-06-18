@@ -39,6 +39,7 @@ import {
 } from '@/constants/contracts'; // TODO: Create this file and add addresses
 import { formatUnitsSafe, parseUnitsSafe } from '@/utils/formatUnits'; // TODO: Create this utility
 import { TokenIcon } from '@/components/features/token'; // Assuming this component exists
+import { SendUserOpContext } from '@/contexts';
 
 // TODO: Define these addresses in @/constants/contracts.ts
 // const MOCK_NERO_STNERO_PAIR_ADDRESS = '0xPairAddressHere'; // Removed mock placeholder
@@ -63,6 +64,7 @@ export default function LiquidityPage() {
   const { execute, checkUserOpStatus, latestUserOpResult } = useSendUserOp();
   const { rpcUrl, chainId } = useConfig();
   const provider = useEthersSigner()?.provider;
+  const sendUserOpCtx = React.useContext(SendUserOpContext);
 
   // UI State
   const [activeTab, setActiveTab] = useState('add');
@@ -70,6 +72,7 @@ export default function LiquidityPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [userOpHash, setUserOpHash] = useState<string | null>(null);
   const [txStatusMessage, setTxStatusMessage] = useState<string>('');
+  const [currentAction, setCurrentAction] = useState<'add' | 'remove' | 'approve' | null>(null);
 
   // Token Info State
   const [tokenAInfo, setTokenAInfo] = useState<TokenInfo | null>(null); // NERO / WNERO
@@ -166,6 +169,40 @@ export default function LiquidityPage() {
             return '0';
         }
     }, [provider, toast]);
+
+  const handleCancel = useCallback(() => {
+    setIsProcessing(false);
+    setUserOpHash(null);
+    setTxStatusMessage('');
+    setCurrentAction(null);
+    if (sendUserOpCtx) sendUserOpCtx.setIsWalletPanel(false);
+    toast({ title: 'Transaction Cancelled', description: 'You cancelled the operation.' });
+  }, [toast, sendUserOpCtx]);
+
+  const refetchAllData = useCallback(async () => {
+    if (!AAaddress || !provider) return;
+    console.log('[LiquidityPage] refetchAllData called.');
+    setIsLoading(true);
+    const wneroDataPromise = fetchTokenMetadataAndBalance(WNERO_ADDRESS);
+    const stneroDataPromise = fetchTokenMetadataAndBalance(STNERO_ADDRESS);
+    const lpDataPromise = fetchTokenMetadataAndBalance(WNERO_STNERO_PAIR_ADDRESS);
+
+    const [wneroData, stneroData, lpData] = await Promise.all([wneroDataPromise, stneroDataPromise, lpDataPromise]);
+
+    if (wneroData) {
+      wneroData.allowance = await fetchAllowance(WNERO_ADDRESS, AAaddress, UNISWAP_ROUTER_ADDRESS, wneroData.decimals);
+      setTokenAInfo(wneroData);
+    }
+    if (stneroData) {
+      stneroData.allowance = await fetchAllowance(STNERO_ADDRESS, AAaddress, UNISWAP_ROUTER_ADDRESS, stneroData.decimals);
+      setTokenBInfo(stneroData);
+    }
+    if (lpData) {
+      lpData.allowance = await fetchAllowance(WNERO_STNERO_PAIR_ADDRESS, AAaddress, UNISWAP_ROUTER_ADDRESS, lpData.decimals);
+      setLpTokenInfo(lpData);
+    }
+    setIsLoading(false);
+  }, [AAaddress, provider, fetchTokenMetadataAndBalance, fetchAllowance]);
 
   // --- Initial Data Fetching ---
   useEffect(() => {
@@ -294,12 +331,18 @@ export default function LiquidityPage() {
     console.log('[LiquidityPage] useEffect execution finished.');
   }, [isConnected, AAaddress, provider, fetchTokenMetadataAndBalance, fetchAllowance, toast]); // REMOVED isLoading from dependency array
 
+  useEffect(() => {
+    if (sendUserOpCtx && !sendUserOpCtx.isWalletPanel && isProcessing && !userOpHash) {
+      handleCancel();
+    }
+  }, [sendUserOpCtx, isProcessing, userOpHash, handleCancel]);
 
   // --- Add Liquidity Logic ---
   const handleApprove = useCallback(async (tokenInfo: TokenInfo, amount: string) => {
     if (!tokenInfo || !UNISWAP_ROUTER_ADDRESS) return;
     setIsProcessing(true);
     setTxStatusMessage(`Approving ${tokenInfo.symbol}...`);
+    setCurrentAction('approve');
     setUserOpHash(null);
 
     const amountToApprove = parseUnitsSafe(amount, tokenInfo.decimals); 
@@ -330,9 +373,9 @@ export default function LiquidityPage() {
       toast({ title: 'Approval Error', description: error.message, variant: 'destructive' });
       setTxStatusMessage(`Failed to approve ${tokenInfo.symbol}.`);
     } finally {
-      // setIsProcessing(false); // Keep processing until tx confirmed or failed
+      handleCancel();
     }
-  }, [execute, toast]);
+  }, [execute, toast, handleCancel]);
 
   const handleAddLiquidity = async () => {
     if (!tokenAInfo || !tokenBInfo || !UNISWAP_ROUTER_ADDRESS || !AAaddress) {
@@ -341,6 +384,7 @@ export default function LiquidityPage() {
     }
     setIsProcessing(true);
     setTxStatusMessage('Adding liquidity...');
+    setCurrentAction('add');
     setUserOpHash(null);
 
     const amountADesired = parseUnitsSafe(addAmountA, tokenAInfo.decimals);
@@ -390,7 +434,7 @@ export default function LiquidityPage() {
         toast({ title: 'Add Liquidity Error', description: error.message, variant: 'destructive' });
         setTxStatusMessage('Failed to add liquidity.');
     } finally {
-        // setIsProcessing(false);
+        handleCancel();
     }
   };
 
@@ -407,6 +451,7 @@ export default function LiquidityPage() {
 
     setIsProcessing(true);
     setTxStatusMessage(`Approving ${lpTokenInfo.symbol} for removal...`);
+    setCurrentAction('approve');
     setUserOpHash(null);
 
     try {
@@ -437,7 +482,7 @@ export default function LiquidityPage() {
     }
     // Note: setIsProcessing(false) should be handled after polling or in a finally block if awaiting confirmation here.
     // For now, it's reset on error or if the calling function handles success.
-  }, [execute, toast, lpTokenInfo, AAaddress, fetchAllowance]);
+  }, [execute, toast, lpTokenInfo, AAaddress, fetchAllowance, handleCancel]);
 
 
   const handleRemoveLiquidity = async () => {
@@ -448,6 +493,7 @@ export default function LiquidityPage() {
 
     setIsProcessing(true);
     setTxStatusMessage('Preparing to remove liquidity...');
+    setCurrentAction('remove');
     setUserOpHash(null);
 
     try {
@@ -556,7 +602,7 @@ export default function LiquidityPage() {
       console.error("[LiquidityPage] Remove Liquidity Error:", error);
       toast({ title: 'Remove Liquidity Error', description: error.message || 'Could not submit remove liquidity transaction.', variant: 'destructive' });
     } finally {
-      // setIsProcessing(false); // Should be set after polling/confirmation
+      handleCancel();
     }
   };
 
@@ -667,41 +713,31 @@ export default function LiquidityPage() {
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     const pollStatus = async () => {
-      if (!userOpHash || !isProcessing) return;
+      if (!userOpHash || !currentAction) return;
       try {
-        const statusResult = await checkUserOpStatus(userOpHash);
-        let successful = false;
-        let failed = false;
+        setTxStatusMessage(`Confirming ${currentAction} transaction...`);
+        const status = await checkUserOpStatus(userOpHash);
 
-        if (typeof statusResult === 'boolean') {
-          if (statusResult === true) successful = true;
-        } else if (statusResult && typeof statusResult === 'object') {
-          // Adapt based on the actual structure of checkUserOpStatus result
-          if ((statusResult as any).mined === true || (statusResult as any).executed === true) successful = true;
-          else if ((statusResult as any).failed === true || (statusResult as any).error) failed = true;
-        }
-
-        if (successful) {
-          toast({ title: 'Transaction Confirmed!', description: `${txStatusMessage.split('.')[0]} was successful.` });
-          setIsProcessing(false);
+        if (status) {
+          toast({ title: 'Transaction Successful', description: `Your ${currentAction} operation was completed.` });
+          // Reset state
           setUserOpHash(null);
-          setTxStatusMessage('Transaction successful!');
-          // TODO: Refresh balances (tokenA, tokenB, LP)
-          // Example: fetchData().then(() => console.log("Balances updated."));
-        } else if (failed) {
-          toast({ title: 'Transaction Failed', description: latestUserOpResult?.error || 'UserOperation failed to execute.', variant: 'destructive' });
           setIsProcessing(false);
-          setUserOpHash(null);
-          setTxStatusMessage(latestUserOpResult?.error || 'Transaction failed.');
+          setTxStatusMessage('');
+          setCurrentAction(null);
+          // Refresh data
+          refetchAllData();
         } else {
-          setTxStatusMessage(`Transaction submitted (${userOpHash.substring(0,10)}...). Awaiting confirmation...`);
+          setTxStatusMessage('Transaction submitted. Waiting for confirmation...');
         }
-      } catch (error: any) {
-        console.error('Error polling UserOp status:', error);
-        toast({ title: 'Polling Error', description: error.message, variant: 'destructive' });
-        setIsProcessing(false); // Stop polling on error
+      } catch (error) {
+        console.error(`Error polling status for ${currentAction}:`, error);
+        toast({ title: 'Polling Error', description: `Failed to get transaction status.`, variant: 'destructive' });
+        // Reset state on error
         setUserOpHash(null);
-        setTxStatusMessage('Error checking transaction status.');
+        setIsProcessing(false);
+        setTxStatusMessage('');
+        setCurrentAction(null);
       }
     };
 
