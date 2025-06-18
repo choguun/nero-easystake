@@ -138,7 +138,9 @@ const CustomConnectButton: React.FC<CustomConnectButtonProps> = ({ mode }) => {
                     onClick={() => {
                         if (isAaConnected) {
                             setIsWalletPanel(!isWalletPanel);
-                        } 
+                        } else {
+                          openConnectModal();
+                        }
                       }}
                     AAaddress={displayAddress as string}
                     isConnected={isAaConnected}
