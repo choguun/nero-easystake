@@ -18,7 +18,7 @@ export function Footer() {
         </p>
         <div className="flex items-center gap-4" data-oid="x.wu4m0">
           <Link
-            href="https://twitter.com/neroeasystake"
+            href="https://twitter.com/easystake196206"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Twitter"
@@ -28,7 +28,7 @@ export function Footer() {
             <Twitter className="h-5 w-5" data-oid="5a_zvyf" />
           </Link>
           <Link
-            href="https://github.com/neroeasystake"
+            href="https://github.com/choguun/nero-easystake"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub"
@@ -37,7 +37,7 @@ export function Footer() {
           >
             <Github className="h-5 w-5" data-oid="z7_p685" />
           </Link>
-          <Link
+          {/* <Link
             href="https://linkedin.com/company/neroeasystake"
             target="_blank"
             rel="noopener noreferrer"
@@ -46,7 +46,7 @@ export function Footer() {
             data-oid="hpn6u5j"
           >
             <Linkedin className="h-5 w-5" data-oid=":qa6b8h" />
-          </Link>
+          </Link> */}
         </div>
       </div>
     </footer>
