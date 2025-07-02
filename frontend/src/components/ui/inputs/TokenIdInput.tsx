@@ -1,22 +1,22 @@
-import React from 'react'
-import { BaseInput } from '@/components/ui/inputs'
-import { TokenIdInputProps } from '@/types'
+import React from "react";
+import { BaseInput } from "@/components/ui/inputs";
+import { TokenIdInputProps } from "@/types";
 
 const TokenIdInput: React.FC<TokenIdInputProps> = ({
   value,
   onChange,
-  label = 'Token ID',
-  placeholder = 'Enter token ID',
+  label = "Token ID",
+  placeholder = "Enter token ID",
   error,
-  className = '',
+  className = "",
 }) => {
   const handleChange = (newValue: string) => {
     // Only allow numeric values
-    if (newValue === '' || /^\d+$/.test(newValue)) {
-      const isValid = newValue !== ''
-      onChange(newValue, isValid)
+    if (newValue === "" || /^\d+$/.test(newValue)) {
+      const isValid = newValue !== "";
+      onChange(newValue, isValid);
     }
-  }
+  };
 
   return (
     <BaseInput
@@ -26,9 +26,9 @@ const TokenIdInput: React.FC<TokenIdInputProps> = ({
       placeholder={placeholder}
       error={error || undefined}
       className={className}
-      type='text'
+      type="text"
     />
-  )
-}
+  );
+};
 
-export default TokenIdInput
+export default TokenIdInput;

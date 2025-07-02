@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react'
-import { ethers } from 'ethers'
-import { parseEther, parseUnits } from 'viem'
-import ERC20 from '@/abis/ERC20/ERC20.json'
-import { TokenIcon } from '@/components/features/token'
-import { TransactionPreview } from '@/components/screens/transaction'
-import { SendContext } from '@/contexts'
+import React, { useState, useEffect, useContext } from "react";
+import { ethers } from "ethers";
+import { parseEther, parseUnits } from "viem";
+import ERC20 from "@/abis/ERC20/ERC20.json";
+import { TokenIcon } from "@/components/features/token";
+import { TransactionPreview } from "@/components/screens/transaction";
+import { SendContext } from "@/contexts";
 import {
   useSimpleAccount,
   useAAtransfer,
@@ -12,14 +12,14 @@ import {
   useScreenManager,
   usePaymasterContext,
   usePaymasterMode,
-} from '@/hooks'
-import { useEstimateUserOpFee } from '@/hooks/operation/useEstimateUserOpFee'
-import { screens } from '@/types'
-import { getSelectedTokenSymbol } from '@/utils'
+} from "@/hooks";
+import { useEstimateUserOpFee } from "@/hooks/operation/useEstimateUserOpFee";
+import { screens } from "@/types";
+import { getSelectedTokenSymbol } from "@/utils";
 
 const SendDetail: React.FC = () => {
-  const { navigateTo } = useScreenManager()
-  const { resetAllContexts } = useResetContexts()
+  const { navigateTo } = useScreenManager();
+  const { resetAllContexts } = useResetContexts();
   const {
     recipientAddress,
     selectedToken,
@@ -27,48 +27,53 @@ const SendDetail: React.FC = () => {
     clearRecipientAddress,
     clearSelectedToken,
     clearBalance,
-  } = useContext(SendContext)!
-  const [estimatedGasCost, setEstimatedGasCost] = useState<string>('Calculating...')
-  const { AAaddress, simpleAccountInstance } = useSimpleAccount()
-  const { transfer } = useAAtransfer()
+  } = useContext(SendContext)!;
+  const [estimatedGasCost, setEstimatedGasCost] =
+    useState<string>("Calculating...");
+  const { AAaddress, simpleAccountInstance } = useSimpleAccount();
+  const { transfer } = useAAtransfer();
   const {
     paymaster,
     selectedToken: paymasterSelectedToken,
     supportedTokens,
-  } = usePaymasterContext()
-  const { paymasterModeValue, isFreeGasMode } = usePaymasterMode()
-  const { estimateUserOpFee } = useEstimateUserOpFee()
+  } = usePaymasterContext();
+  const { paymasterModeValue, isFreeGasMode } = usePaymasterMode();
+  const { estimateUserOpFee } = useEstimateUserOpFee();
 
   useEffect(() => {
     const estimateGasCost = async () => {
-      if (!recipientAddress || !balance || !AAaddress || AAaddress === '0x') {
-        setEstimatedGasCost('null')
-        return
+      if (!recipientAddress || !balance || !AAaddress || AAaddress === "0x") {
+        setEstimatedGasCost("null");
+        return;
       }
 
       try {
         if (isFreeGasMode) {
-          setEstimatedGasCost('0')
-          return
+          setEstimatedGasCost("0");
+          return;
         }
 
-        const operations = []
+        const operations = [];
         if (selectedToken.isNative) {
           operations.push({
             contractAddress: recipientAddress,
-            abi: ['function receive() payable'],
-            function: 'receive',
+            abi: ["function receive() payable"],
+            function: "receive",
             params: [],
             value: parseEther(balance),
-          })
+          });
         } else {
           operations.push({
             contractAddress: selectedToken.contractAddress,
             abi: ERC20,
-            function: 'transfer',
-            params: [recipientAddress, parseUnits(balance, Number(selectedToken.decimals))],
+            function: "transfer",
+            params: [
+              recipientAddress,
+              parseUnits(balance, Number(selectedToken.decimals)),
+            ],
+
             value: ethers.constants.Zero,
-          })
+          });
         }
 
         const fee = await estimateUserOpFee(
@@ -76,15 +81,15 @@ const SendDetail: React.FC = () => {
           paymaster,
           paymasterSelectedToken || undefined,
           paymasterModeValue,
-        )
-        setEstimatedGasCost(fee)
+        );
+        setEstimatedGasCost(fee);
       } catch (error) {
-        console.error('Error setting estimated gas cost:', error)
-        setEstimatedGasCost('0.0001')
+        console.error("Error setting estimated gas cost:", error);
+        setEstimatedGasCost("0.0001");
       }
-    }
+    };
 
-    estimateGasCost()
+    estimateGasCost();
   }, [
     recipientAddress,
     balance,
@@ -95,16 +100,16 @@ const SendDetail: React.FC = () => {
     paymasterModeValue,
     estimateUserOpFee,
     isFreeGasMode,
-  ])
+  ]);
 
   const executeTransfer = async () => {
     if (!simpleAccountInstance) {
-      return Promise.reject('SimpleAccount is not initialized')
+      return Promise.reject("SimpleAccount is not initialized");
     }
 
     const tokenAddress = selectedToken.isNative
       ? ethers.constants.AddressZero
-      : selectedToken.contractAddress
+      : selectedToken.contractAddress;
 
     try {
       const result = await transfer(
@@ -114,44 +119,51 @@ const SendDetail: React.FC = () => {
         paymaster,
         paymasterSelectedToken || undefined,
         paymasterModeValue,
-      )
-      return result
+      );
+      return result;
     } catch (error) {
-      console.error('Transfer failed')
-      throw error
+      console.error("Transfer failed");
+      throw error;
     }
-  }
+  };
 
   const handleClose = () => {
-    clearRecipientAddress()
-    clearSelectedToken()
-    clearBalance()
-    navigateTo(screens.HOME)
-  }
+    clearRecipientAddress();
+    clearSelectedToken();
+    clearBalance();
+    navigateTo(screens.HOME);
+  };
 
   const amountContent = (
     <>
-      <label className='block text-text-secondary text-1sm'>Amount</label>
-      <div className='flex items-center mt-1 mb-2'>
+      <label className="block text-text-secondary text-1sm" data-oid=".5v9_6o">
+        Amount
+      </label>
+      <div className="flex items-center mt-1 mb-2" data-oid=":1.m4v1">
         <TokenIcon
           tokenAddress={selectedToken.contractAddress}
           symbol={selectedToken.symbol}
           isNative={selectedToken.isNative}
-          size='md'
-          className='mr-2'
+          size="md"
+          className="mr-2"
           token={selectedToken}
+          data-oid="m-41yrr"
         />
-        <div className='flex items-center w-full'>
-          <div className='text-xl flex-1 pl-3 overflow-hidden whitespace-nowrap text-ellipsis'>
+
+        <div className="flex items-center w-full" data-oid="i309qdh">
+          <div
+            className="text-xl flex-1 pl-3 overflow-hidden whitespace-nowrap text-ellipsis"
+            data-oid="4k64_7i"
+          >
             {balance} {selectedToken.symbol}
           </div>
         </div>
       </div>
     </>
-  )
+  );
 
   if (!selectedToken || !balance) {
-    return null
+    return null;
   }
 
   return (
@@ -159,14 +171,19 @@ const SendDetail: React.FC = () => {
       from={AAaddress}
       to={recipientAddress}
       networkFee={estimatedGasCost}
-      gasTokenSymbol={getSelectedTokenSymbol(paymaster, paymasterSelectedToken, supportedTokens)}
+      gasTokenSymbol={getSelectedTokenSymbol(
+        paymaster,
+        paymasterSelectedToken,
+        supportedTokens,
+      )}
       onClose={handleClose}
       onConfirm={executeTransfer}
       onReset={resetAllContexts}
+      data-oid="amg32u8"
     >
       {amountContent}
     </TransactionPreview>
-  )
-}
+  );
+};
 
-export default SendDetail
+export default SendDetail;

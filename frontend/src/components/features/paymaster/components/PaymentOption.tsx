@@ -1,5 +1,5 @@
-import React from 'react'
-import { PaymentOptionProps } from '@/types/Paymaster'
+import React from "react";
+import { PaymentOptionProps } from "@/types/Paymaster";
 
 const PaymentOption: React.FC<PaymentOptionProps> = ({
   isSelected = false,
@@ -13,50 +13,66 @@ const PaymentOption: React.FC<PaymentOptionProps> = ({
   isNativeToken = false,
 }) => {
   let className =
-    'flex items-center p-2 rounded-lg cursor-pointer border transition-all duration-300 relative'
+    "flex items-center p-2 rounded-lg cursor-pointer border transition-all duration-300 relative";
 
   if (isTokenOption) {
     if (isDisabled) {
-      className += ' bg-gray-100 text-gray-400 cursor-not-allowed'
+      className += " bg-gray-100 text-gray-400 cursor-not-allowed";
     } else {
       className +=
-        ' bg-gradient-to-r from-blue-200 to-purple-200 border-blue-300 text-primary hover:from-blue-300 hover:to-purple-300 '
+        " bg-gradient-to-r from-blue-200 to-purple-200 border-blue-300 text-primary hover:from-blue-300 hover:to-purple-300 ";
     }
   } else {
     //sponsored UI
     if (isDisabled) {
-      className += ' bg-gray-100 text-white cursor-not-allowed'
+      className += " bg-gray-100 text-white cursor-not-allowed";
     } else {
       className +=
-        ' bg-gradient-to-r from-blue-500/90 to-purple-500/90 text-white hover:from-blue-600 hover:to-purple-600 hover:text-white'
+        " bg-gradient-to-r from-blue-500/90 to-purple-500/90 text-white hover:from-blue-600 hover:to-purple-600 hover:text-white";
     }
   }
 
   if (isSelected) {
     className +=
-      ' bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-lg scale-[1.02]'
+      " bg-gradient-to-r from-blue-600 to-purple-600 text-white border-transparent shadow-lg scale-[1.02]";
   }
 
   return (
-    <div className={className} onClick={isDisabled ? undefined : onClick}>
+    <div
+      className={className}
+      onClick={isDisabled ? undefined : onClick}
+      data-oid="2jfpq1j"
+    >
       <div
         className={`flex items-center justify-center w-6 h-6 rounded-full mr-2 ${
-          isTokenOption ? 'bg-blue-100' : isSelected ? 'bg-white/30 rotate-12' : 'bg-white/20'
+          isTokenOption
+            ? "bg-blue-100"
+            : isSelected
+              ? "bg-white/30 rotate-12"
+              : "bg-white/20"
         }`}
+        data-oid="yzrapx3"
       >
         {icon}
       </div>
-      <div className='flex flex-col'>
-        <span className={`text-sm font-medium`}>
+      <div className="flex flex-col" data-oid="l1_6b9k">
+        <span className={`text-sm font-medium`} data-oid="-0gcj:g">
           {isSelected && !isTokenOption ? `✓ ${title}` : title}
         </span>
-        <span className={`text-xs opacity-80`}>
-          {isNativeToken && isTokenOption ? 'Including Token' : subtitle}
+        <span className={`text-xs opacity-80`} data-oid="uc49tq3">
+          {isNativeToken && isTokenOption ? "Including Token" : subtitle}
         </span>
       </div>
-      {rightIcon && <div className={`absolute right-4 flex items-center text-xs`}>{rightIcon}</div>}
+      {rightIcon && (
+        <div
+          className={`absolute right-4 flex items-center text-xs`}
+          data-oid=":ex1_-9"
+        >
+          {rightIcon}
+        </div>
+      )}
     </div>
-  )
-}
+  );
+};
 
-export default PaymentOption
+export default PaymentOption;

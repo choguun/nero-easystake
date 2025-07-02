@@ -1,59 +1,60 @@
-import React, { useContext } from 'react'
-import { IoArrowBackSharp } from 'react-icons/io5'
-import { NavigationItem } from '@/components/ui/navigation'
-import { SendContext, TokenContext } from '@/contexts'
-import { useScreenManager } from '@/hooks'
-import { BalanceNavigationProps, screens } from '@/types'
+import React, { useContext } from "react";
+import { IoArrowBackSharp } from "react-icons/io5";
+import { NavigationItem } from "@/components/ui/navigation";
+import { SendContext, TokenContext } from "@/contexts";
+import { useScreenManager } from "@/hooks";
+import { BalanceNavigationProps, screens } from "@/types";
 
 const BalanceNavigation: React.FC<BalanceNavigationProps> = ({
-  className = '',
+  className = "",
   activeScreen,
   onSend,
   onReceive,
 }) => {
-  const { navigateTo, currentScreen } = useScreenManager()
-  const { setLastSentToken } = useContext(SendContext)!
-  const { selectedToken } = useContext(TokenContext)!
+  const { navigateTo, currentScreen } = useScreenManager();
+  const { setLastSentToken } = useContext(SendContext)!;
+  const { selectedToken } = useContext(TokenContext)!;
 
-  const current = activeScreen || currentScreen
+  const current = activeScreen || currentScreen;
 
   const handleSend = () => {
     if (onSend) {
-      onSend()
+      onSend();
     } else {
-      setLastSentToken(selectedToken)
-      navigateTo(screens.SEND)
+      setLastSentToken(selectedToken);
+      navigateTo(screens.SEND);
     }
-  }
+  };
 
   const handleReceive = () => {
     if (onReceive) {
-      onReceive()
+      onReceive();
     } else {
-      navigateTo(screens.RECEIVE)
+      navigateTo(screens.RECEIVE);
     }
-  }
+  };
 
   return (
     <div className={`flex space-x-4 mt-4 ${className}`}>
       <NavigationItem
         icon={IoArrowBackSharp}
-        label='Send'
+        label="Send"
         isActive={current === screens.SEND}
         onClick={handleSend}
-        variant='balance'
+        variant="balance"
         iconRotation={135}
       />
+
       <NavigationItem
         icon={IoArrowBackSharp}
-        label='Receive'
+        label="Receive"
         isActive={current === screens.RECEIVE}
         onClick={handleReceive}
-        variant='balance'
+        variant="balance"
         iconRotation={-50}
       />
     </div>
-  )
-}
+  );
+};
 
-export default BalanceNavigation
+export default BalanceNavigation;

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import TransactionPreview from '@/components/screens/transaction/TransactionPreview'
+import React, { useEffect, useState } from "react";
+import TransactionPreview from "@/components/screens/transaction/TransactionPreview";
 import {
   useSimpleAccount,
   useNFTContext,
@@ -8,35 +8,42 @@ import {
   useScreenManager,
   usePaymasterContext,
   usePaymasterMode,
-} from '@/hooks'
-import { screens } from '@/types'
-import { truncateAddress, getSelectedTokenSymbol } from '@/utils'
+} from "@/hooks";
+import { screens } from "@/types";
+import { truncateAddress, getSelectedTokenSymbol } from "@/utils";
 
 const NFTTransferPreview: React.FC = () => {
-  const { navigateTo } = useScreenManager()
-  const { resetAllContexts } = useResetContexts()
-  const { selectedNFT, recipientAddress, clearRecipientAddress } = useNFTContext()
-  const [estimatedGasCost, setEstimatedGasCost] = useState<string>('Calculating...')
-  const { AAaddress, simpleAccountInstance } = useSimpleAccount()
-  const { nftTransfer, estimateNftTransferFee } = useErc721Transfer()
-  const { paymasterModeValue, isFreeGasMode } = usePaymasterMode()
+  const { navigateTo } = useScreenManager();
+  const { resetAllContexts } = useResetContexts();
+  const { selectedNFT, recipientAddress, clearRecipientAddress } =
+    useNFTContext();
+  const [estimatedGasCost, setEstimatedGasCost] =
+    useState<string>("Calculating...");
+  const { AAaddress, simpleAccountInstance } = useSimpleAccount();
+  const { nftTransfer, estimateNftTransferFee } = useErc721Transfer();
+  const { paymasterModeValue, isFreeGasMode } = usePaymasterMode();
   const {
     paymaster,
     selectedToken: paymasterSelectedToken,
     supportedTokens,
-  } = usePaymasterContext()
+  } = usePaymasterContext();
 
   useEffect(() => {
     const estimateGasCost = async () => {
-      if (!recipientAddress || !AAaddress || AAaddress === '0x' || !selectedNFT) {
-        setEstimatedGasCost('null')
-        return
+      if (
+        !recipientAddress ||
+        !AAaddress ||
+        AAaddress === "0x" ||
+        !selectedNFT
+      ) {
+        setEstimatedGasCost("null");
+        return;
       }
 
       try {
         if (isFreeGasMode) {
-          setEstimatedGasCost('0')
-          return
+          setEstimatedGasCost("0");
+          return;
         }
 
         const fee = await estimateNftTransferFee(
@@ -46,15 +53,15 @@ const NFTTransferPreview: React.FC = () => {
           paymaster,
           paymasterSelectedToken || undefined,
           paymasterModeValue,
-        )
-        setEstimatedGasCost(fee)
+        );
+        setEstimatedGasCost(fee);
       } catch (error) {
-        console.error('Error setting estimated gas cost')
-        setEstimatedGasCost('0.0001')
+        console.error("Error setting estimated gas cost");
+        setEstimatedGasCost("0.0001");
       }
-    }
+    };
 
-    estimateGasCost()
+    estimateGasCost();
   }, [
     recipientAddress,
     AAaddress,
@@ -64,30 +71,36 @@ const NFTTransferPreview: React.FC = () => {
     paymasterSelectedToken,
     paymasterModeValue,
     estimateNftTransferFee,
-  ])
+  ]);
 
   const handleClose = () => {
-    clearRecipientAddress()
-    navigateTo(screens.NFTDETAIL)
-  }
+    clearRecipientAddress();
+    navigateTo(screens.NFTDETAIL);
+  };
 
   const nftContent = selectedNFT ? (
-    <div className='flex'>
-      <img src={selectedNFT.image} className='size-20 rounded-lg' alt={selectedNFT.name} />
-      <div className='ml-2'>
-        <p>{selectedNFT.name}</p>
-        <p className='text-sm text-text-secondary'>
+    <div className="flex" data-oid="dbnpz5u">
+      <img
+        src={selectedNFT.image}
+        className="size-20 rounded-lg"
+        alt={selectedNFT.name}
+        data-oid="kwr1n0l"
+      />
+
+      <div className="ml-2" data-oid="kuu261h">
+        <p data-oid="dakliwa">{selectedNFT.name}</p>
+        <p className="text-sm text-text-secondary" data-oid="qn2bja2">
           Contract
-          <span className='text-md ml-2 text-text-primary'>
+          <span className="text-md ml-2 text-text-primary" data-oid="5cufsc9">
             {truncateAddress(selectedNFT.contractAddress)}
           </span>
         </p>
       </div>
     </div>
-  ) : null
+  ) : null;
 
   if (!selectedNFT) {
-    return null
+    return null;
   }
 
   return (
@@ -95,7 +108,11 @@ const NFTTransferPreview: React.FC = () => {
       from={AAaddress}
       to={recipientAddress}
       networkFee={estimatedGasCost}
-      gasTokenSymbol={getSelectedTokenSymbol(paymaster, paymasterSelectedToken, supportedTokens)}
+      gasTokenSymbol={getSelectedTokenSymbol(
+        paymaster,
+        paymasterSelectedToken,
+        supportedTokens,
+      )}
       onClose={handleClose}
       onConfirm={() =>
         simpleAccountInstance
@@ -107,13 +124,14 @@ const NFTTransferPreview: React.FC = () => {
               paymasterSelectedToken || undefined,
               paymasterModeValue,
             )
-          : Promise.reject('SimpleAccount is not initialized')
+          : Promise.reject("SimpleAccount is not initialized")
       }
       onReset={resetAllContexts}
+      data-oid="0d92o60"
     >
       {nftContent}
     </TransactionPreview>
-  )
-}
+  );
+};
 
-export default NFTTransferPreview
+export default NFTTransferPreview;

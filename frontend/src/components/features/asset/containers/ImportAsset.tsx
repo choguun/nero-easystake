@@ -1,245 +1,271 @@
-import React, { useState } from 'react'
-import noImageIcon from '@/assets/noimage.svg'
-import undefinedTokenIcon from '@/assets/undefined-token.png'
-import { ImportButton } from '@/components/ui/buttons'
-import { ContractAddressInput, TokenIdInput } from '@/components/ui/inputs'
-import getNftImgNameFromUri from '@/helper/getNftImgNameFromUri'
+import React, { useState } from "react";
+import noImageIcon from "@/assets/noimage.svg";
+import undefinedTokenIcon from "@/assets/undefined-token.png";
+import { ImportButton } from "@/components/ui/buttons";
+import { ContractAddressInput, TokenIdInput } from "@/components/ui/inputs";
+import getNftImgNameFromUri from "@/helper/getNftImgNameFromUri";
 import {
   useContractValidation,
   useCustomERC20Tokens,
   useCustomERC721Tokens,
   useSimpleAccount,
-} from '@/hooks'
-import { ERC20Token, NftWithImages, TokenData, ImportAssetProps } from '@/types'
+} from "@/hooks";
+import {
+  ERC20Token,
+  NftWithImages,
+  TokenData,
+  ImportAssetProps,
+} from "@/types";
 
-const ImportAsset: React.FC<ImportAssetProps> = ({ assetType, onSuccess, onImport, onClose }) => {
-  const [contractAddress, setContractAddress] = useState('')
-  const [tokenId, setTokenId] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isImporting, setIsImporting] = useState(false)
-  const [isValidContractAddress, setIsValidContractAddress] = useState(false)
-  const [isValidTokenId, setIsValidTokenId] = useState(false)
+const ImportAsset: React.FC<ImportAssetProps> = ({
+  assetType,
+  onSuccess,
+  onImport,
+  onClose,
+}) => {
+  const [contractAddress, setContractAddress] = useState("");
+  const [tokenId, setTokenId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isValidContractAddress, setIsValidContractAddress] = useState(false);
+  const [isValidTokenId, setIsValidTokenId] = useState(false);
 
-  const { addERC20Token, erc20Tokens } = useCustomERC20Tokens()
-  const { addERC721Token, erc721Tokens } = useCustomERC721Tokens()
-  const { AAaddress } = useSimpleAccount()
+  const { addERC20Token, erc20Tokens } = useCustomERC20Tokens();
+  const { addERC721Token, erc721Tokens } = useCustomERC721Tokens();
+  const { AAaddress } = useSimpleAccount();
 
-  const isToken = assetType === 'token'
+  const isToken = assetType === "token";
 
   const { isValidContract, contractInfo, isError } = useContractValidation({
     contractAddress,
     tokenId: !isToken ? tokenId : undefined,
-    contractType: isToken ? 'ERC20' : 'ERC721',
-  })
+    contractType: isToken ? "ERC20" : "ERC721",
+  });
 
   const fetchNFTMetadata = async (tokenURI: string, tokenId: string) => {
     try {
-      const metadata = await getNftImgNameFromUri(tokenURI, tokenId)
+      const metadata = await getNftImgNameFromUri(tokenURI, tokenId);
       return {
         name: metadata?.name || `Token #${tokenId}`,
         image: metadata?.imageUrl || noImageIcon,
-      }
+      };
     } catch (error) {
-      console.warn('Failed to fetch NFT metadata:', error)
+      console.warn("Failed to fetch NFT metadata:", error);
       return {
         name: `Token #${tokenId}`,
         image: noImageIcon,
-      }
+      };
     }
-  }
+  };
 
   const handleContractAddressChange = (value: string, isValid: boolean) => {
-    setContractAddress(value)
-    setIsValidContractAddress(isValid)
+    setContractAddress(value);
+    setIsValidContractAddress(isValid);
     if (value && !isValid) {
-      setError('Invalid contract address format')
+      setError("Invalid contract address format");
     } else {
-      setError(null)
+      setError(null);
     }
-  }
+  };
 
   const handleTokenIdChange = (value: string, isValid: boolean) => {
-    setTokenId(value)
-    setIsValidTokenId(isValid)
+    setTokenId(value);
+    setIsValidTokenId(isValid);
     if (value && !isValid) {
-      setError('Invalid token ID format')
+      setError("Invalid token ID format");
     } else {
-      setError(null)
+      setError(null);
     }
-  }
+  };
 
   const handleImportToken = async () => {
-    if (isImporting) return
-    setIsImporting(true)
+    if (isImporting) return;
+    setIsImporting(true);
 
     try {
       if (isError || !contractInfo) {
-        setError('Invalid token address')
-        return
+        setError("Invalid token address");
+        return;
       }
 
       if (
         erc20Tokens.some(
-          (token) => token.contractAddress.toLowerCase() === contractAddress.toLowerCase(),
+          (token) =>
+            token.contractAddress.toLowerCase() ===
+            contractAddress.toLowerCase(),
         )
       ) {
-        setError('This token has already been added')
-        return
+        setError("This token has already been added");
+        return;
       }
 
-      const [name, symbol, decimals] = contractInfo.map((data) => data.result)
+      const [name, symbol, decimals] = contractInfo.map((data) => data.result);
 
       const newToken: ERC20Token = {
         contractAddress,
         symbol: symbol as string,
         name: name as string,
         decimals: (decimals as number).toString(),
-        balance: '0',
+        balance: "0",
         logo: undefinedTokenIcon,
-        type: 'ERC-20',
-      }
+        type: "ERC-20",
+      };
 
-      addERC20Token(newToken)
+      addERC20Token(newToken);
       if (onImport) {
-        onImport(newToken)
+        onImport(newToken);
       }
-      resetForm()
+      resetForm();
       if (onSuccess) {
-        onSuccess()
+        onSuccess();
       }
       if (onClose) {
-        onClose()
+        onClose();
       }
     } catch (err) {
-      setError('Failed to import token')
+      setError("Failed to import token");
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
-  }
+  };
 
   const handleImportNFT = async () => {
-    if (isImporting) return
-    setIsImporting(true)
+    if (isImporting) return;
+    setIsImporting(true);
 
     try {
       if (isError || !contractInfo || !AAaddress) {
-        setError('Invalid NFT address, token ID, or AA address not available')
-        return
+        setError("Invalid NFT address, token ID, or AA address not available");
+        return;
       }
 
-      const [name, symbol, tokenURI, owner] = contractInfo.map((data) => data.result)
+      const [name, symbol, tokenURI, owner] = contractInfo.map(
+        (data) => data.result,
+      );
 
       if (owner?.toLowerCase() !== AAaddress.toLowerCase()) {
-        setError('You are not the owner of this NFT')
-        return
+        setError("You are not the owner of this NFT");
+        return;
       }
 
       const existingNFT = erc721Tokens.find(
-        (token) => token.contractAddress.toLowerCase() === contractAddress.toLowerCase(),
-      )
+        (token) =>
+          token.contractAddress.toLowerCase() === contractAddress.toLowerCase(),
+      );
 
-      const metadata = await fetchNFTMetadata(tokenURI as string, tokenId)
+      const metadata = await fetchNFTMetadata(tokenURI as string, tokenId);
 
       const newTokenData: TokenData = {
         tokenId: parseInt(tokenId),
         tokenURI: tokenURI as string,
         name: metadata.name,
         image: metadata.image,
-      }
+      };
 
-      let resultNFT: NftWithImages
+      let resultNFT: NftWithImages;
 
       if (existingNFT) {
-        if (existingNFT.tokenData.some((token) => token.tokenId === parseInt(tokenId))) {
-          setError('This token ID has already been added for this contract')
-          return
+        if (
+          existingNFT.tokenData.some(
+            (token) => token.tokenId === parseInt(tokenId),
+          )
+        ) {
+          setError("This token ID has already been added for this contract");
+          return;
         }
 
         resultNFT = {
           ...existingNFT,
           tokenData: [...existingNFT.tokenData, newTokenData],
           balance: (parseInt(existingNFT.balance) + 1).toString(),
-        }
-        addERC721Token(resultNFT)
+        };
+        addERC721Token(resultNFT);
       } else {
         resultNFT = {
           contractAddress,
           name: name as string,
           symbol: symbol as string,
-          type: 'ERC-721',
-          decimals: '',
-          balance: '1',
+          type: "ERC-721",
+          decimals: "",
+          balance: "1",
           tokenData: [newTokenData],
-        }
-        addERC721Token(resultNFT)
+        };
+        addERC721Token(resultNFT);
       }
 
       if (onImport) {
-        onImport(resultNFT)
+        onImport(resultNFT);
       }
-      resetForm()
+      resetForm();
       if (onSuccess) {
-        onSuccess()
+        onSuccess();
       }
       if (onClose) {
-        onClose()
+        onClose();
       }
     } catch (err) {
-      setError('Failed to import NFT. Please try again.')
+      setError("Failed to import NFT. Please try again.");
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
-  }
+  };
 
   const resetForm = () => {
-    setContractAddress('')
-    setTokenId('')
-    setError(null)
-    setIsValidContractAddress(false)
-    setIsValidTokenId(false)
-  }
+    setContractAddress("");
+    setTokenId("");
+    setError(null);
+    setIsValidContractAddress(false);
+    setIsValidTokenId(false);
+  };
 
-  const handleImport = isToken ? handleImportToken : handleImportNFT
+  const handleImport = isToken ? handleImportToken : handleImportNFT;
 
   const isImportReady =
     isValidContractAddress &&
     (isToken || isValidTokenId) &&
     !isImporting &&
     !error &&
-    isValidContract
+    isValidContract;
 
   return (
-    <div className='flex flex-col w-full max-w-md mx-auto'>
+    <div className="flex flex-col w-full max-w-md mx-auto" data-oid="nx71tqq">
       <ContractAddressInput
         value={contractAddress}
         onChange={handleContractAddressChange}
-        label={`${isToken ? 'Token' : 'NFT'} Contract Address`}
-        placeholder={`Enter ${isToken ? 'token' : 'NFT'} contract address`}
+        label={`${isToken ? "Token" : "NFT"} Contract Address`}
+        placeholder={`Enter ${isToken ? "token" : "NFT"} contract address`}
         error={error}
+        data-oid="tdhhkut"
       />
 
       {!isToken && (
         <TokenIdInput
           value={tokenId}
           onChange={handleTokenIdChange}
-          label='Token ID'
-          placeholder='Enter token ID'
+          label="Token ID"
+          placeholder="Enter token ID"
           error={error}
+          data-oid="shx9.js"
         />
       )}
 
-      <div className='flex justify-center w-full'>
+      <div className="flex justify-center w-full" data-oid="9_.s5wt">
         <ImportButton
           onClick={handleImport}
           isReady={isImportReady}
           isImporting={isImporting}
-          label={`Import ${isToken ? 'Token' : 'NFT'}`}
+          label={`Import ${isToken ? "Token" : "NFT"}`}
+          data-oid="_.965yf"
         />
       </div>
 
-      {error && <p className='text-red-500 text-center'>{error}</p>}
+      {error && (
+        <p className="text-red-500 text-center" data-oid=":4_o8ii">
+          {error}
+        </p>
+      )}
     </div>
-  )
-}
+  );
+};
 
-export default ImportAsset
+export default ImportAsset;

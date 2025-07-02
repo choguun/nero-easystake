@@ -1,26 +1,30 @@
-import React from 'react'
-import { TruncatedTextProps } from '@/types'
+import React from "react";
+import { TruncatedTextProps } from "@/types";
 
 const TruncatedText: React.FC<TruncatedTextProps> = ({
   text,
-  className = '',
+  className = "",
   maxLength,
-  maxWidth = 'max-w-[200px]',
+  maxWidth = "max-w-[200px]",
   withTooltip = true,
-  fontSize = 'base',
-  as: Component = 'span',
+  fontSize = "base",
+  as: Component = "span",
 }) => {
   const truncatedText = maxLength
-    ? text.slice(0, maxLength) + (text.length > maxLength ? '...' : '')
-    : text
-  const baseClasses = `truncate ${maxWidth} ${`text-${fontSize}`}`
-  const combinedClasses = `${baseClasses} ${className}`.trim()
+    ? text.slice(0, maxLength) + (text.length > maxLength ? "..." : "")
+    : text;
+  const baseClasses = `truncate ${maxWidth} ${`text-${fontSize}`}`;
+  const combinedClasses = `${baseClasses} ${className}`.trim();
 
   return (
-    <Component className={combinedClasses} title={withTooltip ? text : undefined}>
+    <Component
+      className={combinedClasses}
+      title={withTooltip ? text : undefined}
+      data-oid="gruryw0"
+    >
       {truncatedText}
     </Component>
-  )
-}
+  );
+};
 
-export default TruncatedText
+export default TruncatedText;

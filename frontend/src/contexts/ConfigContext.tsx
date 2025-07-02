@@ -1,38 +1,43 @@
-'use client'
+"use client";
 
-import React, { createContext, useCallback, useState } from 'react'
-import { ConfigContextProps, ConfigProviderProps } from '@/types'
+import React, { createContext, useCallback, useState } from "react";
+import { ConfigContextProps, ConfigProviderProps } from "@/types";
 
-export const ConfigContext = createContext<ConfigContextProps | undefined>(undefined)
+export const ConfigContext = createContext<ConfigContextProps | undefined>(
+  undefined,
+);
 
-export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children, config }) => {
-  const [currentNetworkIndex, setCurrentNetworkIndex] = useState(0)
+export const ConfigProvider: React.FC<ConfigProviderProps> = ({
+  children,
+  config,
+}) => {
+  const [currentNetworkIndex, setCurrentNetworkIndex] = useState(0);
 
   const getChainConfig = useCallback(() => {
     if (config.chains.length <= currentNetworkIndex) {
-      setCurrentNetworkIndex(0)
-      return config.chains[0]
+      setCurrentNetworkIndex(0);
+      return config.chains[0];
     }
-    return config.chains[currentNetworkIndex]
-  }, [currentNetworkIndex, config])
+    return config.chains[currentNetworkIndex];
+  }, [currentNetworkIndex, config]);
 
   const switchNetwork = useCallback(() => {
     setCurrentNetworkIndex((prev) => {
-      const nextIndex = prev + 1
-      return nextIndex >= config.chains.length ? 0 : nextIndex
-    })
-  }, [config.chains.length])
+      const nextIndex = prev + 1;
+      return nextIndex >= config.chains.length ? 0 : nextIndex;
+    });
+  }, [config.chains.length]);
 
   const switchToNetwork = useCallback(
     (index: number) => {
       if (index >= 0 && index < config.chains.length) {
-        setCurrentNetworkIndex(index)
+        setCurrentNetworkIndex(index);
       }
     },
     [config.chains.length],
-  )
+  );
 
-  const chainConfig = getChainConfig()
+  const chainConfig = getChainConfig();
   const {
     rpc: rpcUrl,
     explorer: explorerUrl,
@@ -40,25 +45,26 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children, config
     chainId,
     name: chainName,
     networkType,
-  } = chainConfig.chain
+  } = chainConfig.chain;
 
   const {
     decimals: tokenDecimals,
     name: tokenName,
     symbol: tokenSymbol,
-  } = chainConfig.chain.nativeToken
+  } = chainConfig.chain.nativeToken;
 
   const {
     paymaster: paymasterUrl,
     paymasterAPIKey: paymasterApi,
     bundler: bundlerUrl,
-  } = chainConfig.aa
+  } = chainConfig.aa;
 
-  const { entryPoint, accountFactory, tokenPaymaster } = chainConfig.aaContracts
+  const { entryPoint, accountFactory, tokenPaymaster } =
+    chainConfig.aaContracts;
 
-  const { clientId, uiConfig, loginConfig } = chainConfig.web3auth
+  const { clientId, uiConfig, loginConfig } = chainConfig.web3auth;
 
-  const hasWeb3AuthConfig = Boolean(chainConfig.web3auth.clientId)
+  const hasWeb3AuthConfig = Boolean(chainConfig.web3auth.clientId);
 
   return (
     <ConfigContext.Provider
@@ -97,5 +103,5 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children, config
     >
       {children}
     </ConfigContext.Provider>
-  )
-}
+  );
+};

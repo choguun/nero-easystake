@@ -1,32 +1,36 @@
-'use client'
+"use client";
 
-import React, { createContext, useState, useEffect } from 'react'
-import { Token, TokenContextType, ProviderProps } from '@/types'
-import { isValidAddress } from '@/utils'
+import React, { createContext, useState, useEffect } from "react";
+import { Token, TokenContextType, ProviderProps } from "@/types";
+import { isValidAddress } from "@/utils";
 
-export const TokenContext = createContext<TokenContextType | undefined>(undefined)
+export const TokenContext = createContext<TokenContextType | undefined>(
+  undefined,
+);
 
 export const TokenProvider: React.FC<ProviderProps> = ({ children }) => {
-  const [selectedToken, setSelectedToken] = useState<Token | null>(null)
-  const [recipientAddress, setRecipientAddress] = useState('')
-  const [paymaster, setPaymaster] = useState(false)
-  const [isTransferEnabled, setIsTransferEnabled] = useState(false)
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [paymaster, setPaymaster] = useState(false);
+  const [isTransferEnabled, setIsTransferEnabled] = useState(false);
 
   const selectToken = (token: Token) => {
-    setSelectedToken(token)
-  }
+    setSelectedToken(token);
+  };
 
   const clearToken = () => {
-    setSelectedToken(null)
-  }
+    setSelectedToken(null);
+  };
 
   const clearRecipientAddress = () => {
-    setRecipientAddress('')
-  }
+    setRecipientAddress("");
+  };
 
   useEffect(() => {
-    setIsTransferEnabled(!!recipientAddress && isValidAddress(recipientAddress) && !!selectedToken)
-  }, [recipientAddress, selectedToken])
+    setIsTransferEnabled(
+      !!recipientAddress && isValidAddress(recipientAddress) && !!selectedToken,
+    );
+  }, [recipientAddress, selectedToken]);
 
   return (
     <TokenContext.Provider
@@ -45,5 +49,5 @@ export const TokenProvider: React.FC<ProviderProps> = ({ children }) => {
     >
       {children}
     </TokenContext.Provider>
-  )
-}
+  );
+};
